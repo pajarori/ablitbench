@@ -1,0 +1,9 @@
+*
+!dist/
+!dist/ablitbench-*.whl
+!workers/
+!workers/Dockerfile
+!workers/core.lock
+!workers/inference.lock
+!workers/research.lock
+!workers/gguf.lock

@@ -1,0 +1,91 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ablitbench"
+dynamic = ["version"]
+description = "Evidence-based source and endpoint assessment for AI models"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+authors = [{ name = "pajarori" }]
+keywords = ["ai", "model-security", "assessment", "benchmark", "scanner"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Security",
+]
+dependencies = [
+    "click>=8.2,<9",
+    "rich>=14,<16",
+    "httpx2>=2.16,<3",
+    "pydantic>=2.12,<3",
+    "huggingface_hub>=2.4,<3",
+    "PyYAML>=6,<7",
+    "psutil>=7,<8",
+    "numpy>=2.2,<3",
+    "safetensors>=0.6,<1",
+    "gguf>=0.19,<1",
+]
+
+[project.urls]
+Homepage = "https://github.com/pajarori/ablitbench"
+Repository = "https://github.com/pajarori/ablitbench"
+Issues = "https://github.com/pajarori/ablitbench/issues"
+
+[project.scripts]
+ablib = "ablitbench.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=1",
+    "hypothesis>=6",
+    "ruff>=0.14",
+    "mypy>=1.18",
+    "types-PyYAML",
+    "types-psutil",
+    "build>=1",
+]
+
+[tool.hatch.version]
+path = "ablitbench/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["ablitbench"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/ablitbench",
+    "/workers",
+    "/pyproject.toml",
+    "/uv.lock",
+    "/README.md",
+    "/LICENSE",
+    "/NOTICE",
+    "/.github/workflows",
+    "/.dockerignore",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]

@@ -1,0 +1,58 @@
+name: Core
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  core:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15-intel, macos-15, windows-2025, windows-11-arm]
+        python: ['3.12', '3.13', '3.14']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.9.27'
+          python-version: ${{ matrix.python }}
+      - run: uv sync --locked --dev
+      - run: uv run ruff check ablitbench
+      - run: uv run ruff format --check ablitbench
+      - run: uv run mypy ablitbench
+      - run: uv build
+      - name: Verify installed CLI and static scan
+        shell: bash
+        env:
+          PYTHONUTF8: '1'
+        run: |
+          uv run python - <<'PY'
+          import json
+          import subprocess
+          import sys
+          import tempfile
+          from pathlib import Path
+          wheels = list(Path('dist').glob('ablitbench-*.whl'))
+          assert len(wheels) == 1
+          wheel = str(wheels[0].resolve())
+          pipx = ['uvx', '--from', 'pipx', 'pipx']
+          subprocess.run(pipx + ['install', wheel, '--python', sys.executable], check=True)
+          subprocess.run(pipx + ['runpip', 'ablitbench', 'check'], check=True)
+          command = pipx + ['run', '--spec', wheel, 'ablib']
+          for arguments in (['--help'], ['api', '--help'], ['source', '--help'], ['--version']):
+              subprocess.run(command + arguments, check=True)
+          with tempfile.TemporaryDirectory() as directory:
+              root = Path(directory)
+              model = root / 'model'
+              model.mkdir()
+              (model / 'config.json').write_text('{}', encoding='utf-8')
+              result = subprocess.run(command + ['source', str(model), '--output', str(root / 'run'), '--format', 'json'], check=True, capture_output=True, text=True, encoding='utf-8')
+              report = json.loads(result.stdout)
+              assert report['result']['status'] == 'completed'
+              assert report['result']['summary']['findings'] == 0
+          PY
