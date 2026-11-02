@@ -14,8 +14,8 @@ from contextlib import closing
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any
 
-from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from nacl.exceptions import BadSignatureError
+from nacl.signing import VerifyKey
 
 from ablitbench.formats.archive import unsafe_path
 from ablitbench.formats.json import loads
@@ -132,10 +132,8 @@ def validate_manifest(
             raise ProvenanceRejected("Invalid signed inventory commitment")
         try:
             signature = decode_base64(envelope["signature"], 64)
-            Ed25519PublicKey.from_public_bytes(key).verify(
-                signature, signature_payload(key_id, statement)
-            )
-        except (InvalidSignature, ValueError) as error:
+            VerifyKey(key).verify(signature_payload(key_id, statement), signature)
+        except (BadSignatureError, ValueError) as error:
             raise ProvenanceRejected("Ed25519 signature verification failed") from error
         checksum = hashlib.sha256()
         count = 0

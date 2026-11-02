@@ -39,6 +39,19 @@ jobs:
           import tempfile
           from pathlib import Path
           from ablitbench.io_worker import remove_research
+          from nacl.exceptions import BadSignatureError
+          from nacl.signing import VerifyKey
+          public = bytes.fromhex('d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a')
+          signature = bytes.fromhex('e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b')
+          VerifyKey(public).verify(b'', signature)
+          order = (1 << 252) + 27742317777372353535851937790883648493
+          forged = signature[:32] + (int.from_bytes(signature[32:], 'little') + order).to_bytes(32, 'little')
+          try:
+              VerifyKey(public).verify(b'', forged)
+          except BadSignatureError:
+              pass
+          else:
+              raise AssertionError('Noncanonical Ed25519 signature accepted')
           wheels = list(Path('dist').glob('ablitbench-*.whl'))
           assert len(wheels) == 1
           wheel = str(wheels[0].resolve())
