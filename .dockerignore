@@ -6,4 +6,8 @@
 !workers/core.lock
 !workers/inference.lock
 !workers/research.lock
+!workers/research-build.lock
 !workers/gguf.lock
+!workers/discovery.lock
+!workers/discovery-engine.lock
+!workers/activation.lock

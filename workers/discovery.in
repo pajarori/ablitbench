@@ -1,0 +1,11 @@
+torch>=2.6,<3
+transformers[chat-template]>=5.22,<6
+peft>=0.21,<1
+pandas>=2,<4
+matplotlib>=3.8,<4
+seaborn>=0.13,<1
+scikit-learn>=1.5,<2
+datasets>=2.14,<6
+nltk>=3.9,<4
+protobuf>=4.25,<5
+tiktoken>=0.12,<1

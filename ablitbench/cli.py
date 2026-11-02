@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import sqlite3
 import sys
 from pathlib import Path
@@ -11,6 +12,8 @@ import yaml
 from rich.console import Console
 
 from ablitbench.core import REGISTRY, Scanner
+from ablitbench.formats.json import loads as json_loads
+from ablitbench.formats.yaml import load as yaml_load
 from ablitbench.models import Event, ScanConfig
 from ablitbench.report import BANNER, banner, event_terminal, terminal
 
@@ -35,11 +38,25 @@ def main() -> None:
     pass
 
 
+def configuration_schema(ctx: click.Context, parameter: click.Parameter, value: bool) -> None:
+    if value and not ctx.resilient_parsing:
+        click.echo(json.dumps(ScanConfig.model_json_schema(), indent=2))
+        ctx.exit()
+
+
 def common(function: Any) -> Any:
     options = [
         click.argument("target", required=False),
         click.option(
             "--config", "config_path", type=click.Path(exists=True, dir_okay=False, path_type=Path)
+        ),
+        click.option(
+            "--schema",
+            is_flag=True,
+            is_eager=True,
+            expose_value=False,
+            callback=configuration_schema,
+            help="Print the configuration JSON Schema without making requests.",
         ),
         click.option("--checks", help="Comma-separated IDs: " + ", ".join(s.id for s in REGISTRY)),
         click.option("--output", type=click.Path(file_okay=False, path_type=Path)),
@@ -96,7 +113,8 @@ def configuration(mode: str, arguments: dict[str, Any]) -> ScanConfig:
     data: dict[str, Any] = {}
     path = arguments.get("config_path")
     if path:
-        loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
+        text = path.read_text(encoding="utf-8")
+        loaded = json_loads(text) if path.suffix.lower() == ".json" else yaml_load(text)
         if not isinstance(loaded, dict):
             raise ValueError("Config must be an object")
         data = loaded

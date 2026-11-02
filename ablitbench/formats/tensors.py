@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import math
 import struct
 from collections.abc import Iterator
@@ -9,6 +8,7 @@ from typing import Any, BinaryIO
 
 import numpy as np
 
+from ablitbench.formats.json import load, loads
 from ablitbench.limits import available_memory
 
 DTYPES = {
@@ -28,17 +28,8 @@ DTYPES = {
 }
 
 
-def unique_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
-    result: dict[str, Any] = {}
-    for key, value in pairs:
-        if key in result:
-            raise ValueError("Duplicate key: " + key)
-        result[key] = value
-    return result
-
-
 def load_json(stream: BinaryIO) -> Any:
-    return json.load(stream, object_pairs_hook=unique_pairs)
+    return load(stream)
 
 
 def safetensors(path: Path) -> Iterator[dict[str, Any]]:
@@ -52,7 +43,7 @@ def safetensors(path: Path) -> Iterator[dict[str, Any]]:
             raise ValueError("Safetensors header exceeds file")
         if header_size > available_memory():
             raise MemoryError("Safetensors header exceeds available memory")
-        header = json.loads(stream.read(header_size), object_pairs_hook=unique_pairs)
+        header = loads(stream.read(header_size))
     if not isinstance(header, dict):
         raise ValueError("Safetensors header must be an object")
     ranges = []

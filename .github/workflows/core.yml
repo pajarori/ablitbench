@@ -33,10 +33,12 @@ jobs:
         run: |
           uv run python - <<'PY'
           import json
+          import os
           import subprocess
           import sys
           import tempfile
           from pathlib import Path
+          from ablitbench.io_worker import remove_research
           wheels = list(Path('dist').glob('ablitbench-*.whl'))
           assert len(wheels) == 1
           wheel = str(wheels[0].resolve())
@@ -47,7 +49,7 @@ jobs:
           for arguments in (['--help'], ['api', '--help'], ['source', '--help'], ['--version']):
               subprocess.run(command + arguments, check=True)
           with tempfile.TemporaryDirectory() as directory:
-              root = Path(directory)
+              root = Path(directory).resolve()
               model = root / 'model'
               model.mkdir()
               (model / 'config.json').write_text('{}', encoding='utf-8')
@@ -55,4 +57,16 @@ jobs:
               report = json.loads(result.stdout)
               assert report['result']['status'] == 'completed'
               assert report['result']['summary']['findings'] == 0
+              original = root / 'readonly-original'
+              original.write_bytes(b'original-content')
+              original.chmod(0o444)
+              package = root / 'research' / 'cleanup-proof'
+              package.mkdir(parents=True)
+              os.link(original, package / 'linked-copy')
+              permissions = original.stat().st_mode
+              remove_research(root, 'cleanup-proof')
+              assert not package.exists()
+              assert original.read_bytes() == b'original-content'
+              assert original.stat().st_mode == permissions
+              original.chmod(0o600)
           PY

@@ -12,8 +12,77 @@ from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any
 
-from ablitbench.models import CheckResult, Coverage, Event, Evidence, Job, ScanConfig, digest
+from ablitbench.models import Case, CheckResult, Coverage, Event, Evidence, Job, ScanConfig, digest
 from ablitbench.privacy import restrict_directory
+
+
+def replay_cases(
+    database: Path, destination: Path, temporary_directory: Path | None = None
+) -> tuple[int, str] | None:
+    source = sqlite3.connect(f"{database.resolve().as_uri()}?mode=ro", uri=True)
+    source.execute("BEGIN")
+    try:
+        if (
+            source.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='case_definitions'"
+            ).fetchone()
+            is None
+        ):
+            return None
+        destination.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        with tempfile.TemporaryDirectory(
+            prefix="replay-index-", dir=temporary_directory or destination.parent
+        ) as temporary:
+            root = Path(temporary)
+            index = sqlite3.connect(root / "index.sqlite")
+            try:
+                index.executescript(
+                    "CREATE TABLE cases (original TEXT, identity TEXT, payload TEXT, "
+                    "PRIMARY KEY(original, identity));"
+                    "CREATE TABLE ids (id TEXT PRIMARY KEY);"
+                )
+                for (payload,) in source.execute(
+                    "SELECT payload FROM case_definitions ORDER BY job, case_id"
+                ):
+                    case = Case.model_validate_json(payload)
+                    canonical = json.dumps(case.model_dump(mode="json"), sort_keys=True)
+                    checksum = hashlib.sha256(canonical.encode()).hexdigest()
+                    index.execute(
+                        "INSERT OR IGNORE INTO cases VALUES (?, ?, ?)",
+                        (case.id, checksum, canonical),
+                    )
+                index.commit()
+                stream_checksum = hashlib.sha256()
+                count = 0
+                pending = root / "cases.jsonl"
+                with pending.open("wb") as stream:
+                    for original, identity, payload, variants in index.execute(
+                        "SELECT original, identity, payload, "
+                        "(SELECT COUNT(*) FROM cases other WHERE other.original=cases.original) "
+                        "FROM cases ORDER BY original, identity"
+                    ):
+                        identifier = original if variants == 1 else original + "-" + identity
+                        while index.execute(
+                            "SELECT 1 FROM ids WHERE id=?", (identifier,)
+                        ).fetchone():
+                            identifier += "-" + identity
+                        index.execute("INSERT INTO ids VALUES (?)", (identifier,))
+                        case = Case.model_validate_json(payload).model_copy(
+                            update={"id": identifier}
+                        )
+                        line = (case.model_dump_json() + "\n").encode()
+                        stream.write(line)
+                        stream_checksum.update(line)
+                        count += 1
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                os.chmod(pending, 0o600)
+                os.replace(pending, destination)
+                return count, stream_checksum.hexdigest()
+            finally:
+                index.close()
+    finally:
+        source.close()
 
 
 class Store:
@@ -88,6 +157,19 @@ CREATE TABLE IF NOT EXISTS blobs (sha256 TEXT PRIMARY KEY, size INTEGER, media_t
                             f"ALTER TABLE {table} ADD COLUMN {column} TEXT NOT NULL DEFAULT ''"
                         )
             self.connection.executescript("""
+    DROP TABLE IF EXISTS evaluation_scopes;
+    DROP TABLE IF EXISTS evaluation_units;
+    CREATE TABLE IF NOT EXISTS measurements (id INTEGER PRIMARY KEY, job TEXT, role TEXT,
+        backend TEXT, elapsed REAL, status TEXT, usage TEXT);
+    CREATE TABLE IF NOT EXISTS outcomes (id INTEGER PRIMARY KEY, job TEXT NOT NULL,
+        case_id TEXT NOT NULL, repeat INTEGER NOT NULL, status TEXT NOT NULL,
+        payload TEXT NOT NULL, UNIQUE(job, case_id, repeat));
+    CREATE INDEX IF NOT EXISTS outcomes_job ON outcomes(job);
+    CREATE TABLE IF NOT EXISTS case_definitions (job TEXT NOT NULL, case_id TEXT NOT NULL,
+        payload TEXT NOT NULL, PRIMARY KEY(job, case_id));
+    CREATE TABLE IF NOT EXISTS episode_jobs (job TEXT PRIMARY KEY);
+    CREATE TABLE IF NOT EXISTS episodes (job TEXT NOT NULL, case_id TEXT NOT NULL,
+        repeat INTEGER NOT NULL, state TEXT NOT NULL, PRIMARY KEY(job, case_id, repeat));
     CREATE TABLE IF NOT EXISTS units (job TEXT, name TEXT, state TEXT,
         inspected INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(job, name));
     CREATE UNIQUE INDEX IF NOT EXISTS findings_identity ON findings(job, unit, identity)
@@ -103,6 +185,119 @@ CREATE TABLE IF NOT EXISTS blobs (sha256 TEXT PRIMARY KEY, size INTEGER, media_t
             self.close()
             raise
 
+    def define_case(self, job: Job, case: Case) -> None:
+        key = self.job_key(job)
+        payload = case.model_dump_json()
+        previous = self.connection.execute(
+            "SELECT payload FROM case_definitions WHERE job=? AND case_id=?", (key, case.id)
+        ).fetchone()
+        if previous and previous[0] != payload:
+            raise ValueError("Case definition changed within a job: " + case.id)
+        with self.connection:
+            self.connection.execute(
+                "INSERT OR IGNORE INTO case_definitions(job, case_id, payload) VALUES (?, ?, ?)",
+                (key, case.id, payload),
+            )
+
+    def has_episodes(self, job: Job) -> bool:
+        return (
+            self.connection.execute(
+                "SELECT 1 FROM episode_jobs WHERE job=?", (self.job_key(job),)
+            ).fetchone()
+            is not None
+        )
+
+    def prepare_episodes(self, job: Job, cases: Iterable[Case], repeats: int) -> None:
+        if self.has_episodes(job):
+            return
+        key = self.job_key(job)
+        with self.connection:
+            for case in cases:
+                payload = case.model_dump_json()
+                prior = self.connection.execute(
+                    "SELECT payload FROM case_definitions WHERE job=? AND case_id=?",
+                    (key, case.id),
+                ).fetchone()
+                if prior and prior[0] != payload:
+                    raise ValueError("Case definition changed within a job: " + case.id)
+                self.connection.execute(
+                    "INSERT OR IGNORE INTO case_definitions VALUES (?, ?, ?)",
+                    (key, case.id, payload),
+                )
+                self.connection.executemany(
+                    "INSERT OR IGNORE INTO episodes VALUES (?, ?, ?, 'unstarted')",
+                    ((key, case.id, repeat) for repeat in range(repeats)),
+                )
+            self.connection.execute("INSERT INTO episode_jobs VALUES (?)", (key,))
+
+    def episode_state(self, job: Job, case_id: str, repeat: int) -> str | None:
+        row = self.connection.execute(
+            "SELECT state FROM episodes WHERE job=? AND case_id=? AND repeat=?",
+            (self.job_key(job), case_id, repeat),
+        ).fetchone()
+        return str(row[0]) if row else None
+
+    def recover_episodes(self, job: Job) -> None:
+        with self.connection:
+            self.connection.execute(
+                "UPDATE episodes SET state='uncertain' WHERE job=? AND state='running'",
+                (self.job_key(job),),
+            )
+
+    def episode_result(self, job: Job, coverage: Coverage) -> CheckResult:
+        previous = self.previous(job)
+        result = previous[1] if previous and previous[1] else CheckResult(persisted=True)
+        result.status, result.reason = "completed", None
+        result.coverage.units = coverage.units
+        result.coverage.total = coverage.total
+        return result
+
+    def begin_episode(self, job: Job, case: Case, repeat: int, result: CheckResult) -> bool:
+        key = self.job_key(job)
+        with self.connection:
+            state = self.episode_state(job, case.id, repeat)
+            if state != "unstarted":
+                return False
+            row = self.connection.execute(
+                "SELECT payload FROM outcomes WHERE job=? AND case_id=? AND repeat=?",
+                (key, case.id, repeat),
+            ).fetchone()
+            if row:
+                outcome = json.loads(row[0])
+                if not outcome.get("evaluators") or any(
+                    item["evaluator"] != "not-observed" for item in outcome["evaluators"]
+                ):
+                    self.connection.execute(
+                        "UPDATE episodes SET state='uncertain' "
+                        "WHERE job=? AND case_id=? AND repeat=?",
+                        (key, case.id, repeat),
+                    )
+                    return False
+                self.connection.execute(
+                    "DELETE FROM outcomes WHERE job=? AND case_id=? AND repeat=?",
+                    (key, case.id, repeat),
+                )
+            self.connection.execute(
+                "UPDATE episodes SET state='running' WHERE job=? AND case_id=? AND repeat=?",
+                (key, case.id, repeat),
+            )
+            population = result.outcome_count - int(row is not None)
+            saved = self._write_checkpoint(
+                job, "running", result.model_copy(update={"outcome_count": population})
+            )
+        if saved:
+            self._adopt_checkpoint(result, saved)
+        return True
+
+    def has_uncertain_episodes(self, job: Job) -> bool:
+        return (
+            self.connection.execute(
+                "SELECT 1 FROM episodes WHERE job=? AND state IN ('running', 'uncertain') LIMIT 1",
+                (self.job_key(job),),
+            ).fetchone()
+            is not None
+        )
+
     def get(self, key: str) -> str | None:
         row = self.connection.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()
         return str(row[0]) if row else None
@@ -112,26 +307,22 @@ CREATE TABLE IF NOT EXISTS blobs (sha256 TEXT PRIMARY KEY, size INTEGER, media_t
             self.connection.execute("INSERT OR REPLACE INTO meta VALUES (?, ?)", (key, value))
 
     def blob(self, chunks: Iterable[bytes], media_type: str = "application/json") -> Evidence:
-        descriptor, name = tempfile.mkstemp(prefix="pending-", dir=self.blobs)
-        checksum = hashlib.sha256()
-        size = 0
-        try:
-            with os.fdopen(descriptor, "wb") as stream:
-                for chunk in chunks:
-                    stream.write(chunk)
-                    checksum.update(chunk)
-                    size += len(chunk)
-                stream.flush()
-                os.fsync(stream.fileno())
-            identity = checksum.hexdigest()
-            os.replace(name, self.blobs / identity)
-            with self.connection:
-                self.connection.execute(
-                    "INSERT OR IGNORE INTO blobs VALUES (?, ?, ?)", (identity, size, media_type)
-                )
-            return Evidence(sha256=identity, size=size, media_type=media_type)
-        finally:
-            Path(name).unlink(missing_ok=True)
+        return self.commit_blob(self.prepare_blob(chunks, media_type))
+
+    def commit_blob(self, evidence: Evidence) -> Evidence:
+        with self.connection:
+            self.connection.execute(
+                "INSERT OR IGNORE INTO blobs VALUES (?, ?, ?)",
+                (evidence.sha256, evidence.size, evidence.media_type),
+            )
+        return evidence
+
+    def prepare_blob(
+        self, chunks: Iterable[bytes], media_type: str = "application/json"
+    ) -> Evidence:
+        from ablitbench.io_worker import prepare_blob
+
+        return prepare_blob(chunks, self.blobs, media_type)
 
     def evidence(self, value: Any) -> str:
         return self.blob([json.dumps(value, ensure_ascii=True, allow_nan=False).encode()]).sha256
@@ -173,6 +364,7 @@ CREATE TABLE IF NOT EXISTS blobs (sha256 TEXT PRIMARY KEY, size INTEGER, media_t
             self.connection.execute("DELETE FROM findings WHERE job=?", (key,))
             self.connection.execute("DELETE FROM details WHERE job=?", (key,))
             self.connection.execute("DELETE FROM units WHERE job=?", (key,))
+            self.connection.execute("DELETE FROM outcomes WHERE job=?", (key,))
         saved = None
         if result:
             findings = self.connection.executemany(
@@ -207,9 +399,50 @@ CREATE TABLE IF NOT EXISTS blobs (sha256 TEXT PRIMARY KEY, size INTEGER, media_t
                 "VALUES (?, ?, ?, ?, ?)",
                 ((key, "gap", value, unit, digest(value)) for value in result.coverage.gaps),
             ).rowcount
+            outcomes = 0
+            target_payload = self.get(f"target:{job.target}") if result.outcomes else None
+            target_identity = json.loads(target_payload).get("identity") if target_payload else None
+            for outcome in result.outcomes:
+                if target_identity is not None:
+                    outcome = outcome.model_copy(update={"target_identity": target_identity})
+                inserted = self.connection.execute(
+                    "INSERT OR IGNORE INTO outcomes(job, case_id, repeat, status, payload) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (
+                        key,
+                        outcome.case_id,
+                        outcome.repeat,
+                        outcome.status,
+                        outcome.model_dump_json(),
+                    ),
+                ).rowcount
+                outcomes += inserted
+                if inserted and not any(
+                    item.evaluator == "not-observed" for item in outcome.evaluators
+                ):
+                    self.connection.execute(
+                        "UPDATE episodes SET state=? WHERE job=? AND case_id=? AND repeat=? "
+                        "AND state='running'",
+                        (
+                            "completed" if outcome.complete else "uncertain",
+                            key,
+                            outcome.case_id,
+                            outcome.repeat,
+                        ),
+                    )
+                if inserted:
+                    event = Event(
+                        kind="case_outcome",
+                        data={"job": key, "outcome": outcome.model_dump(mode="json")},
+                    )
+                    self.connection.execute(
+                        "INSERT INTO events(payload) VALUES (?)", (event.model_dump_json(),)
+                    )
             saved = result.model_copy(
                 update={
                     "persisted": True,
+                    "outcome_count": result.outcome_count + outcomes,
+                    "outcomes": [],
                     "finding_count": result.finding_count + findings,
                     "evidence_count": result.evidence_count + evidence,
                     "findings": [],
@@ -237,6 +470,8 @@ CREATE TABLE IF NOT EXISTS blobs (sha256 TEXT PRIMARY KEY, size INTEGER, media_t
         result.persisted = saved.persisted
         result.finding_count = saved.finding_count
         result.evidence_count = saved.evidence_count
+        result.outcome_count = saved.outcome_count
+        result.outcomes.clear()
         result.coverage.gap_count = saved.coverage.gap_count
         result.findings.clear()
         result.evidence.clear()
@@ -347,6 +582,37 @@ CREATE TABLE IF NOT EXISTS blobs (sha256 TEXT PRIMARY KEY, size INTEGER, media_t
             "SELECT payload FROM findings WHERE job=? ORDER BY id", (key,)
         ):
             yield row[0]
+
+    def measure_generation(
+        self, job: Job, role: str, backend: str, elapsed: float, usage: dict[str, Any] | None
+    ) -> None:
+        with self.connection:
+            self.connection.execute(
+                "INSERT INTO measurements(job, role, backend, elapsed, status, usage) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    self.job_key(job),
+                    role,
+                    backend,
+                    elapsed,
+                    "completed" if usage is not None else "inconclusive",
+                    json.dumps(usage) if usage is not None else None,
+                ),
+            )
+
+    def outcome_payloads(self, key: str) -> Iterator[str]:
+        for row in self.connection.execute(
+            "SELECT payload FROM outcomes WHERE job=? ORDER BY id", (key,)
+        ):
+            yield row[0]
+
+    def outcome_counts(self) -> dict[str, int]:
+        counts = {"pass": 0, "fail": 0, "inconclusive": 0}
+        for status, count in self.connection.execute(
+            "SELECT status, COUNT(*) FROM outcomes GROUP BY status"
+        ):
+            counts[status] = count
+        return counts
 
     def previous(self, job: Job) -> tuple[str, CheckResult | None] | None:
         row = self.connection.execute(

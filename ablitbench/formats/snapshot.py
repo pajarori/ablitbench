@@ -98,7 +98,13 @@ def secure_open(path: Path) -> BinaryIO:
         raise
 
 
-def snapshot(target: ResolvedTarget, entry: FileEntry, offline: bool, directory: Path) -> Path:
+def snapshot(
+    target: ResolvedTarget,
+    entry: FileEntry,
+    offline: bool,
+    directory: Path,
+    temporary_directory: Path | None = None,
+) -> Path:
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
     identity = hashlib.sha256((target.identity + entry.name).encode()).hexdigest()
     destination = directory / (identity + Path(entry.name).suffix)
@@ -114,7 +120,9 @@ def snapshot(target: ResolvedTarget, entry: FileEntry, offline: bool, directory:
     path = materialize(target, entry, offline) if entry.path is None else entry.path
     if entry.issue:
         raise ValueError(entry.issue)
-    descriptor, temporary = tempfile.mkstemp(prefix="snapshot-", dir=directory)
+    descriptor, temporary = tempfile.mkstemp(
+        prefix="snapshot-", dir=temporary_directory or directory
+    )
     try:
         with (
             os.fdopen(descriptor, "wb") as output,
@@ -135,7 +143,7 @@ def snapshot(target: ResolvedTarget, entry: FileEntry, offline: bool, directory:
                 raise ValueError("File drift since inventory: " + entry.name)
             output.flush()
             os.fsync(output.fileno())
-        os.chmod(temporary, 0o400)
+        os.chmod(temporary, 0o444)
         os.replace(temporary, destination)
         return destination
     finally:

@@ -16,13 +16,26 @@ def unsafe_path(name: str) -> bool:
 def inspect_archive(path: Path) -> Iterator[dict[str, str]]:
     if zipfile.is_zipfile(path):
         with zipfile.ZipFile(path) as archive:
+            seen: set[str] = set()
             for item in archive.infolist():
+                name = item.filename.replace("\\", "/")
+                if name in seen:
+                    yield {
+                        "member": item.filename,
+                        "issue": "duplicate archive member path",
+                        "coverage_gap": "Duplicate members may be selected differently by loaders",
+                    }
+                seen.add(name)
                 if unsafe_path(item.filename):
                     yield {"member": item.filename, "issue": "archive path traversal"}
                 if item.external_attr >> 16 & 0o170000 == 0o120000:
                     yield {"member": item.filename, "issue": "archive symlink"}
                 if item.flag_bits & 1:
-                    yield {"member": item.filename, "issue": "encrypted member not inspected"}
+                    yield {
+                        "member": item.filename,
+                        "issue": "encrypted member not inspected",
+                        "coverage_gap": "Encrypted archive payload unavailable",
+                    }
     else:
         with tarfile.open(path, mode="r|*") as archive:
             for member in archive:

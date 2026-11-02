@@ -5,6 +5,7 @@ import json
 import os
 import re
 import stat
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -28,7 +29,8 @@ def hash_file(path: Path) -> str:
         return checksum.hexdigest()
 
 
-def local_entries(root: Path, excluded: Path) -> Any:
+def local_entries(root: Path, excluded: Path, *additional_excluded: Path) -> Any:
+    excluded_paths = {path.resolve() for path in (excluded, *additional_excluded)}
     if root.is_file() and not root.is_symlink():
         paths = iter([root])
         base = root.parent
@@ -39,7 +41,7 @@ def local_entries(root: Path, excluded: Path) -> Any:
             with os.scandir(directory) as entries:
                 for item in sorted(entries, key=lambda entry: entry.name):
                     path = Path(item.path)
-                    if path.resolve() == excluded or path == excluded:
+                    if path.resolve() in excluded_paths or path in excluded_paths:
                         continue
                     if item.is_dir(follow_symlinks=False):
                         yield from walk(path)
@@ -74,6 +76,8 @@ def resolve(
     directory: Path,
     index: int,
     excluded: Path | None = None,
+    scratch: Path | None = None,
+    progress: Callable[[dict[str, Any]], None] | None = None,
 ) -> ResolvedTarget:
     if mode == "api":
         return ResolvedTarget(
@@ -95,7 +99,12 @@ def resolve(
                 if path.is_file()
             )
         else:
-            info = HfApi().model_info(repo, revision=revision, files_metadata=True)
+            info = HfApi().model_info(
+                repo,
+                revision=revision,
+                files_metadata=True,
+                token=os.environ.get("HF_TOKEN") or False,
+            )
             revision = info.sha
             if revision is None or not re.fullmatch(r"(?:[a-f0-9]{40}|[a-f0-9]{64})", revision):
                 raise ValueError("Hub did not return an immutable commit identity")
@@ -114,7 +123,21 @@ def resolve(
         root = root.resolve()
         if directory.is_relative_to(root) and directory == root:
             raise ValueError("Output cannot be the source directory")
-        entries = local_entries(root, excluded.resolve() if excluded else directory)
+        entries = local_entries(
+            root,
+            excluded.resolve() if excluded else directory,
+            directory,
+            *([scratch] if scratch else []),
+        )
+    if progress:
+        progress(
+            {
+                "phase": "inventory",
+                "revision": revision,
+                "location": target.location,
+                "scope": "cached" if offline and target.location.startswith("hf://") else "full",
+            }
+        )
     checksum = hashlib.sha256()
     files = size = 0
     with inventory.open("w", encoding="utf-8") as stream:
@@ -157,5 +180,6 @@ def materialize(resolved: ResolvedTarget, entry: FileEntry, offline: bool) -> Pa
             entry.name,
             revision=resolved.revision,
             local_files_only=offline,
+            token=os.environ.get("HF_TOKEN") or False,
         )
     )

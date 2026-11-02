@@ -45,6 +45,7 @@ def export(store: Store, result: RunResult) -> None:
             payload = check.model_dump(mode="json")
             payload.pop("findings")
             payload.pop("evidence")
+            payload.pop("outcomes")
             coverage = payload.pop("coverage")
             coverage.pop("gaps")
             stream.write('{"job":' + json.dumps(key) + ',"result":')
@@ -55,6 +56,9 @@ def export(store: Store, result: RunResult) -> None:
             stream.write('],"evidence":[')
             for index, evidence in enumerate(store.details(key, "evidence")):
                 stream.write(("," if index else "") + json.dumps(evidence))
+            stream.write('],"outcomes":[')
+            for index, outcome in enumerate(store.outcome_payloads(key)):
+                stream.write(("," if index else "") + outcome)
             stream.write('],"coverage":' + json.dumps(coverage)[:-1] + ',"gaps":[')
             for index, gap in enumerate(store.details(key, "gap")):
                 stream.write(("," if index else "") + json.dumps(gap))
@@ -83,6 +87,8 @@ def export(store: Store, result: RunResult) -> None:
             )
             for finding in store.finding_payloads(key):
                 stream.write("<pre>" + html.escape(finding) + "</pre>")
+            for outcome in store.outcome_payloads(key):
+                stream.write("<pre>Case outcome: " + html.escape(outcome) + "</pre>")
             for gap in store.details(key, "gap"):
                 stream.write("<p>Coverage gap: " + html.escape(gap) + "</p>")
         stream.write(footer)
@@ -122,4 +128,11 @@ def terminal(console: Console, result: RunResult) -> None:
         f"Findings: {result.summary['findings']} · Behavior: {result.summary['behavior']}",
         markup=False,
     )
+    if "case_outcomes" in result.summary:
+        outcomes = result.summary["case_outcomes"]
+        console.print(
+            f"Cases: {outcomes['pass']} pass · {outcomes['fail']} fail · "
+            f"{outcomes['inconclusive']} inconclusive · {outcomes['unobserved']} unobserved",
+            markup=False,
+        )
     console.print(f"Report: {result.directory / 'report.html'}", markup=False)

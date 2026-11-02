@@ -196,6 +196,7 @@ async def parse(
     directory: Path,
     memory: int | None = None,
     reference: Path | None = None,
+    name: str | None = None,
 ) -> Path:
     descriptor, output_name = tempfile.mkstemp(prefix="parsed-", dir=directory)
     os.close(descriptor)
@@ -208,6 +209,7 @@ async def parse(
             "output": str(output),
             "memory": capacity,
             "reference": str(reference) if reference else None,
+            "name": name,
         }
         with tempfile.TemporaryFile() as errors:
             returncode, exceeded, cancelled = await _execute(request, directory, capacity, errors)

@@ -8,5 +8,8 @@ psutil>=7,<8
 numpy>=2.2,<3
 safetensors>=0.6,<1
 gguf>=0.19,<1
+Jinja2>=3.1.6,<4
+cryptography>=50.0.2,<51
 modelscan[h5py]==0.8.8
-modelaudit[h5,onnx]==0.2.54
+modelaudit[h5,onnx] @ https://github.com/promptfoo/modelaudit/archive/415819fa0b58d097dd201c0fa3f41eba33431c78.tar.gz
+modelaudit-picklescan @ https://github.com/promptfoo/modelaudit/archive/415819fa0b58d097dd201c0fa3f41eba33431c78.tar.gz#subdirectory=packages/modelaudit-picklescan

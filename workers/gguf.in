@@ -1,11 +1,2 @@
-click>=8.2,<9
-rich>=14,<16
-httpx2>=2.16,<3
-pydantic>=2.12,<3
-huggingface_hub>=2.4,<3
-PyYAML>=6,<7
-psutil>=7,<8
-numpy>=2.2,<3
-safetensors>=0.6,<1
-gguf>=0.19,<1
+-r core.lock
 llama-cpp-python==0.3.36
