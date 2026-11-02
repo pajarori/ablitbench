@@ -322,7 +322,7 @@ class Worker:
             try:
                 if process.returncode is None:
                     try:
-                        process.terminate()
+                        process.kill()
                     except ProcessLookupError:
                         pass
                 await asyncio.shield(process.wait())

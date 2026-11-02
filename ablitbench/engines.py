@@ -4,6 +4,9 @@ import ast
 import hashlib
 import importlib
 import importlib.metadata
+import inspect
+from collections.abc import Iterator
+from contextlib import contextmanager
 from functools import cache
 from pathlib import Path
 from typing import Any
@@ -94,6 +97,63 @@ def installation(engine: str) -> dict[str, Any]:
     return packages
 
 
+@contextmanager
+def modelscan_numpy() -> Iterator[dict[str, Any]]:
+    numpy = importlib.import_module("numpy")
+    public = importlib.import_module("numpy.lib.format")
+    names = ("_check_version", "_read_array_header")
+    missing = [name for name in names if not hasattr(public, name)]
+    metadata: dict[str, Any] = {
+        "modelscan": importlib.metadata.version("modelscan"),
+        "numpy": numpy.__version__,
+        "status": "native" if not missing else "unsupported",
+        "bindings": [],
+    }
+    if not missing:
+        yield metadata
+        return
+    if (metadata["modelscan"], metadata["numpy"]) != ("0.8.8", "2.5.4"):
+        metadata["reason"] = (
+            "Unreviewed ModelScan/NumPy private API combination; no aliases applied"
+        )
+        yield metadata
+        return
+    original = importlib.import_module("numpy.lib._format_impl")
+    functions = {name: getattr(original, name) for name in missing}
+    header = original._read_array_header
+    header_guard = inspect.signature(header).parameters["max_header_size"].default
+    if header_guard != 10000:
+        metadata["reason"] = "Reviewed NumPy header guard changed; no aliases applied"
+        yield metadata
+        return
+    module_path = original.__file__
+    if module_path is None:
+        raise ValueError("Reviewed NumPy source identity unavailable; no aliases applied")
+    metadata.update(
+        status="temporary-original-function-aliases",
+        numpy_module_sha256=hashlib.sha256(Path(module_path).read_bytes()).hexdigest(),
+        max_numpy_header_bytes=header_guard,
+        scope="Private NumPy API relocation only; original detector and header guard retained",
+        bindings=[
+            {
+                "destination": "numpy.lib.format." + name,
+                "source": function.__module__ + "." + function.__name__,
+                "function_sha256": hashlib.sha256(inspect.getsource(function).encode()).hexdigest(),
+            }
+            for name, function in functions.items()
+        ],
+    )
+    applied = []
+    try:
+        for name, function in functions.items():
+            setattr(public, name, function)
+            applied.append(name)
+        yield metadata
+    finally:
+        for name in reversed(applied):
+            delattr(public, name)
+
+
 def coverage_gaps(value: Any, path: str = "result") -> list[dict[str, Any]]:
     gaps: list[dict[str, Any]] = []
     pending = [(path, value)]
@@ -104,6 +164,20 @@ def coverage_gaps(value: Any, path: str = "result") -> list[dict[str, Any]]:
             continue
         if not isinstance(item, dict):
             continue
+        scanners = item.get("scanner_dependency_ids")
+        if (
+            isinstance(scanners, list)
+            and scanners
+            and all(value == "unknown" for value in scanners)
+        ):
+            gaps.append(
+                {
+                    "location": location,
+                    "reason": "no_format_security_scanner",
+                    "scope": "Inventory or metadata inspection only",
+                    "scanner_dependency_ids": scanners,
+                }
+            )
         markers = {
             key: item[key]
             for key in (
@@ -136,13 +210,20 @@ def coverage_gaps(value: Any, path: str = "result") -> list[dict[str, Any]]:
 
 def scan(engine: str, path: Path, timeout: int | None = None) -> dict[str, Any]:
     identity = installation(engine)
+    compatibility: dict[str, Any] = {}
     if engine == "modelscan":
         implementation = importlib.import_module("modelscan.modelscan").ModelScan()
-        result = implementation.scan(path)
+        with modelscan_numpy() as compatibility:
+            result = implementation.scan(path)
         summary = result.get("summary", {})
         gaps = list(result.get("errors", [])) + summary.get("skipped", {}).get("skipped_files", [])
         inspected = summary.get("scanned", {}).get("total_scanned", 0)
-        limits: dict[str, Any] = {"nested_zip": "unsupported; skipped entries retained"}
+        if compatibility["status"] == "unsupported":
+            gaps.append({"reason": "unreviewed_numpy_compatibility", **compatibility})
+        limits: dict[str, Any] = {
+            "nested_zip": "unsupported; skipped entries retained",
+            "numpy_header_bytes": compatibility.get("max_numpy_header_bytes"),
+        }
     elif engine == "modelaudit":
         implementation = importlib.import_module("modelaudit.core")
         kwargs: dict[str, Any] = {"max_file_size": 0, "max_total_size": 0, "skip_file_types": False}
@@ -203,4 +284,5 @@ def scan(engine: str, path: Path, timeout: int | None = None) -> dict[str, Any]:
         "gaps": gaps,
         "inspected": inspected,
         "limits": limits,
+        "compatibility": compatibility,
     }

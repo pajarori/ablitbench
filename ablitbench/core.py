@@ -99,7 +99,7 @@ REGISTRY = [
     ),
     CheckSpec(
         id="engines",
-        version="2",
+        version="3",
         category="source-security",
         capability="source",
         description="Versioned ModelAudit/ModelScan sandbox contracts",
