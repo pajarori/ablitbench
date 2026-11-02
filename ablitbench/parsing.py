@@ -8,11 +8,12 @@ import sys
 import tempfile
 from collections.abc import Callable, Generator
 from pathlib import Path
-from typing import Any, BinaryIO
+from typing import Any
 
 import psutil
 
 from ablitbench.limits import available_memory, memory_job
+from ablitbench.streams import BinaryStream
 
 
 class ParserCancelled(asyncio.CancelledError):
@@ -31,7 +32,7 @@ async def _stop(process: asyncio.subprocess.Process) -> None:
 
 
 async def _execute(
-    request: dict[str, Any], directory: Path, capacity: int, errors: BinaryIO
+    request: dict[str, Any], directory: Path, capacity: int, errors: BinaryStream
 ) -> tuple[int, bool, bool]:
     environment = {
         key: value
@@ -46,7 +47,7 @@ async def _execute(
             "ablitbench.parser",
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.DEVNULL,
-            stderr=errors,
+            stderr=errors.fileno(),
             env=environment,
             cwd=directory,
         )
@@ -104,7 +105,7 @@ async def _execute(
 
 
 def _finalize_output(
-    output: Path, returncode: int, errors: BinaryIO, exceeded: bool, cancelled: bool
+    output: Path, returncode: int, errors: BinaryStream, exceeded: bool, cancelled: bool
 ) -> int:
     complete = 0
     boundary = 0

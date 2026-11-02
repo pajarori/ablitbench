@@ -5,6 +5,7 @@ import importlib
 import ntpath
 import os
 import stat
+import sys
 import tempfile
 from pathlib import Path
 from typing import BinaryIO
@@ -23,7 +24,7 @@ def windows_path(value: str) -> str:
 
 def secure_open(path: Path) -> BinaryIO:
     path = path.absolute()
-    if os.name != "nt":
+    if sys.platform != "win32" and os.name == "posix":
         descriptor = os.open(path.anchor, os.O_RDONLY | os.O_DIRECTORY)
         try:
             for part in path.parts[1:-1]:
@@ -41,6 +42,8 @@ def secure_open(path: Path) -> BinaryIO:
             os.close(leaf)
             raise ValueError("Snapshot input must be a regular file")
         return os.fdopen(leaf, "rb")
+    if os.name != "nt":
+        raise OSError("Secure snapshot access requires POSIX or Windows")
     import ctypes
 
     msvcrt = importlib.import_module("msvcrt")

@@ -136,7 +136,9 @@ class GGUFInference:
 
 
 def isolation() -> None:
-    if platform.system() != "Linux" or os.getuid() == 0:
+    if sys.platform != "linux":
+        raise ValueError("Worker requires Linux and an unprivileged user")
+    if os.getuid() == 0:
         raise ValueError("Worker requires Linux and an unprivileged user")
     status = dict(
         line.split(":", 1)

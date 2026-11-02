@@ -7,10 +7,11 @@ import shutil
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Any, BinaryIO
+from typing import Any
 
 from ablitbench.models import Runtime, WorkerRequest, WorkerResponse
 from ablitbench.provenance import implementation_identity
+from ablitbench.streams import BinaryStream
 from ablitbench.transport import CapabilityError
 
 
@@ -19,7 +20,7 @@ class Worker:
         self, runtime: Runtime, model: Path | None = None, base: Path | None = None
     ) -> None:
         self.runtime, self.model, self.base = runtime, model, base
-        self.processes: dict[bool, tuple[asyncio.subprocess.Process, str, BinaryIO]] = {}
+        self.processes: dict[bool, tuple[asyncio.subprocess.Process, str, BinaryStream]] = {}
         self.buffers: dict[bool, bytes] = {}
         self.containers: set[str] = set()
 

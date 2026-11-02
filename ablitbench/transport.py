@@ -8,12 +8,13 @@ import time
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
-from typing import Any, BinaryIO
+from typing import Any
 
 import httpx2 as httpx
 
 from ablitbench.models import Generation, ScanConfig, Target, ToolCall
 from ablitbench.store import Store
+from ablitbench.streams import BinaryStream
 
 
 class ProtocolError(ValueError):
@@ -41,7 +42,7 @@ async def sse(response: httpx.Response) -> AsyncIterator[tuple[str, str]]:
 
 
 class Capture(httpx.AsyncByteStream):
-    def __init__(self, stream: httpx.AsyncByteStream, destination: BinaryIO) -> None:
+    def __init__(self, stream: httpx.AsyncByteStream, destination: BinaryStream) -> None:
         self.stream, self.destination = stream, destination
 
     async def __aiter__(self) -> AsyncIterator[bytes]:
