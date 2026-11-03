@@ -34,6 +34,12 @@ class Inference:
         tokenizer_path = (
             model_root if (model_root / "tokenizer_config.json").is_file() else model_path
         )
+        from ablitbench.parity.media_backend import load_processor, model_class
+
+        model_config = transformers.AutoConfig.from_pretrained(
+            model_path, local_files_only=True, trust_remote_code=False
+        )
+        media_factory = model_class(model_config)
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(
             tokenizer_path, local_files_only=True, trust_remote_code=False
         )
@@ -63,7 +69,8 @@ class Inference:
                     parser_factory(prefix="")
                 except (ValueError, TypeError):
                     self.native_tools = False
-        self.model, loading = transformers.AutoModelForCausalLM.from_pretrained(
+        factory = media_factory or transformers.AutoModelForCausalLM
+        self.model, loading = factory.from_pretrained(
             model_path,
             local_files_only=True,
             trust_remote_code=False,
@@ -110,6 +117,12 @@ class Inference:
                         "Adapter parameter shapes differ from the normalized state contract"
                     )
         self.model = self.model.to(device).eval()
+        self.media = load_processor(model_path, self.model) if media_factory is not None else None
+        if self.media is not None:
+            if self.media.tokenizer is None or (
+                self.media.tokenizer.get_vocab() != self.tokenizer.get_vocab()
+            ):
+                raise ValueError("Multimodal processor/tokenizer vocabulary identity differs")
 
     def response_parser(self, input_ids: Any, tools: Any) -> Any:
         template = self.tokenizer.response_template
@@ -174,13 +187,36 @@ class Inference:
             raise ValueError("Tokenizer does not support native structured tool calls")
         if request.get("seed") is not None:
             self.torch.manual_seed(request["seed"])
-        inputs = self.tokenizer.apply_chat_template(
-            request["messages"],
-            tools=request.get("tools"),
-            add_generation_prompt=True,
-            return_tensors="pt",
-            return_dict=True,
-        )
+        media = getattr(self, "media", None)
+        modalities = request.get("output_modalities", ["text"])
+        audio_format = request.get("output_audio_format")
+        if request.get("tools") and "text" not in modalities:
+            raise ValueError("Native tool calls require a requested text output channel")
+        if media is None and (modalities != ["text"] or audio_format is not None):
+            raise ValueError("Text-only source backend has no requested output media capability")
+        if media is not None:
+            inputs = media.prepare(request["messages"], request.get("tools"))
+        else:
+            messages = []
+            for message in request["messages"]:
+                content = message.get("content")
+                if isinstance(content, list):
+                    if any(
+                        not isinstance(block, dict)
+                        or block.get("type") != "text"
+                        or not isinstance(block.get("text"), str)
+                        for block in content
+                    ):
+                        raise ValueError("Text-only source model cannot decode media content")
+                    message = {**message, "content": "\n".join(block["text"] for block in content)}
+                messages.append(message)
+            inputs = self.tokenizer.apply_chat_template(
+                messages,
+                tools=request.get("tools"),
+                add_generation_prompt=True,
+                return_tensors="pt",
+                return_dict=True,
+            )
         inputs = inputs.to(self.device)
         encoded = self.tokenizer.decode(inputs["input_ids"][0], skip_special_tokens=False)
         missing_markers = {
@@ -190,7 +226,7 @@ class Inference:
             for marker in request.get("required_system_markers", [])
             if marker not in encoded
         }
-        parse_channels = bool(getattr(self, "channel_fields", set()))
+        parse_channels = bool(getattr(self, "channel_fields", set())) and "text" in modalities
         parser = (
             self.response_parser(inputs["input_ids"][0], request.get("tools"))
             if request.get("tools") or parse_channels
@@ -199,44 +235,98 @@ class Inference:
         context_capacities = [
             value
             for value in (
-                getattr(self.model.config, "max_position_embeddings", None),
+                media.context_limit
+                if media is not None
+                else getattr(self.model.config, "max_position_embeddings", None),
                 request.get("context_tokens"),
             )
             if type(value) is int and value > 0
         ]
         context_limit = min(context_capacities) if context_capacities else None
+        encoder_decoder = media is not None and media.is_encoder_decoder
         if (
             context_limit
-            and inputs["input_ids"].shape[-1] + request["max_output_tokens"] > context_limit
+            and (
+                request["max_output_tokens"]
+                if encoder_decoder
+                else inputs["input_ids"].shape[-1] + request["max_output_tokens"]
+            )
+            > context_limit
         ):
             raise ValueError(
                 "Request exceeds model context capacity; no prompt truncation performed"
             )
+        if (
+            encoder_decoder
+            and media is not None
+            and media.output_context_limit is not None
+            and (request["max_output_tokens"] > media.output_context_limit)
+        ):
+            raise ValueError("Request exceeds native decoder output context capacity")
         with self.torch.inference_mode():
+            from ablitbench.generation import generation_options
+
             output = self.model.generate(
-                **inputs, max_new_tokens=request["max_output_tokens"], do_sample=False
+                **inputs,
+                max_new_tokens=request["max_output_tokens"],
+                **generation_options("transformers", request.get("generation_settings", {})),
+                **(
+                    media.generation_kwargs(modalities, audio_format, request["max_output_tokens"])
+                    if media is not None
+                    else {}
+                ),
             )
-        tokens = output[0][inputs["input_ids"].shape[-1] :]
-        text = self.tokenizer.decode(tokens, skip_special_tokens=True)
+        if media is not None:
+            normalized = media.normalize_generated(
+                output, int(inputs["input_ids"].shape[-1]), modalities, audio_format
+            )
+            text, output_tokens = normalized["text"], normalized["output_tokens"]
+            raw_output = normalized.get("raw_text")
+        else:
+            tokens = output[0][inputs["input_ids"].shape[-1] :]
+            text, output_tokens = (
+                self.tokenizer.decode(tokens, skip_special_tokens=True),
+                len(tokens),
+            )
+            raw_output = (
+                self.tokenizer.decode(tokens, skip_special_tokens=False)
+                if parser is not None
+                else None
+            )
         result: dict[str, Any] = {
             "text": text,
-            "finish": "length" if len(tokens) == request["max_output_tokens"] else "stop",
+            "media": normalized.get("media", []) if media is not None else [],
+            "finish": "length" if output_tokens == request["max_output_tokens"] else "stop",
             "usage": {
                 "input_tokens": int(inputs["input_ids"].shape[-1]),
-                "output_tokens": len(tokens),
+                "output_tokens": output_tokens,
             },
         }
-        if missing_markers:
+        if result["finish"] == "length":
+            for item in result["media"]:
+                item["complete"] = False
+        if media is not None:
             result["observations"] = [
-                {
-                    "code": code,
-                    "detail": "A required system instruction was not preserved in encoded input",
-                    "severity": "info",
-                }
-                for code in sorted(missing_markers)
+                {"code": "source-media-processing", "detail": json.dumps(value), "severity": "info"}
+                for value in media.observations
             ]
+        if missing_markers:
+            result.setdefault("observations", []).extend(
+                [
+                    {
+                        "code": code,
+                        "detail": (
+                            "A required system instruction was not preserved in encoded input"
+                        ),
+                        "severity": "info",
+                    }
+                    for code in sorted(missing_markers)
+                ]
+            )
         if parser is not None:
-            raw = self.tokenizer.decode(tokens, skip_special_tokens=False)
+            if not isinstance(raw_output, str):
+                raise ValueError("Native media backend did not preserve generated channel content")
+            raw = raw_output
             result["raw_text"] = raw
             parser.feed(raw)
             message, _ = parser.finalize()
@@ -296,14 +386,25 @@ class GGUFInference:
         )
 
     def generate(self, request: dict[str, Any]) -> dict[str, Any]:
+        from ablitbench.generation import generation_options, text_content
         from ablitbench.transport import decode_json
 
+        if (
+            request.get("output_modalities", ["text"]) != ["text"]
+            or request.get("output_audio_format") is not None
+        ):
+            raise ValueError("GGUF backend has no requested output media adapter")
+        messages = [
+            {**message, "content": text_content(message.get("content"))}
+            for message in request["messages"]
+        ]
         result = self.model.create_chat_completion(
-            messages=request["messages"],
+            messages=messages,
             tools=request.get("tools"),
             max_tokens=request["max_output_tokens"],
             seed=request.get("seed"),
             stream=False,
+            **generation_options("llama-cpp", request.get("generation_settings", {})),
         )
         generation = decode_json("openai-chat", result).model_dump()
         if request.get("required_system_markers"):
@@ -342,6 +443,35 @@ def isolation() -> None:
         raise ValueError(
             "Worker requires no-new-privileges, seccomp filtering, and zero capabilities"
         )
+    network_isolation()
+
+
+def network_isolation(proc: Path = Path("/proc"), links: Path = Path("/sys/class/net")) -> None:
+    interfaces = {
+        row.split(":", 1)[0].strip()
+        for row in (proc / "net/dev").read_text().splitlines()[2:]
+        if ":" in row
+    }
+    active = {
+        name for name in interfaces if int((links / name / "flags").read_text().strip(), 16) & 1
+    }
+    if active - {"lo"}:
+        import re
+
+        if re.fullmatch(r"[a-f0-9]{64}", os.environ.get("ABLIB_CLUSTER_NETWORK", "")) is None:
+            raise ValueError("Worker network is not isolated")
+        routes = (proc / "net/route").read_text().splitlines()[1:]
+        if any(row.split()[1] == "00000000" for row in routes):
+            raise ValueError("Research worker has an external default route")
+        if (proc / "sys/net/ipv6/conf/all/disable_ipv6").read_text().strip() != "1":
+            raise ValueError("Research worker IPv6 isolation was not enforced")
+    else:
+        if (proc / "net/route").read_text().splitlines()[1:]:
+            raise ValueError("Offline worker has a network route")
+        for row in (proc / "net/if_inet6").read_text().splitlines():
+            fields = row.split()
+            if fields and (fields[-1] != "lo" or fields[0] != "00000000000000000000000000000001"):
+                raise ValueError("Offline worker has an external IPv6 address")
 
 
 def capacity(request: WorkerRequest) -> dict[str, Any]:
@@ -383,6 +513,7 @@ def main() -> None:
     activation_model: Any = None
     bait_model: Any = None
     fingerprint_model: Any = None
+    environment_executor: Any = None
     for line in sys.stdin:
         response = WorkerResponse(
             isolation=platform.system().lower(), implementation=implementation_identity()
@@ -391,7 +522,101 @@ def main() -> None:
             isolation()
             request = WorkerRequest.model_validate_json(line)
             response.capacity = capacity(request)
-            if request.operation == "tool":
+            if request.operation == "experiment":
+                from ablitbench.parity.catalog import (
+                    available_modes,
+                    configuration,
+                    execute,
+                    requirements,
+                    requires_execution,
+                )
+                from ablitbench.parity.exchange import WorkerBroker
+
+                if request.project is None or request.experiment_operation is None:
+                    raise ValueError("Research project and operation are required")
+                if not Path("/output").is_dir():
+                    raise ValueError("Research output mount is required")
+                settings = configuration(
+                    request.project, request.experiment_operation, request.settings
+                )
+                if request.mode not in available_modes(
+                    request.project, request.experiment_operation, settings
+                ):
+                    raise ValueError("Research operation is unavailable in this mode")
+                if settings.get("device", request.device) != request.device:
+                    raise ValueError("Research operation device conflicts with sandbox runtime")
+                if (
+                    requires_execution(
+                        request.project, request.experiment_operation, settings, "tools"
+                    )
+                    and not request.execute_tools
+                ):
+                    raise ValueError("Research tool execution is not authorized")
+                if (
+                    request.mode == "source"
+                    and not request.inference
+                    and requires_execution(
+                        request.project, request.experiment_operation, settings, "inference"
+                    )
+                ):
+                    raise ValueError("Research source inference is not authorized")
+                if requirements(request.project, request.experiment_operation, settings) - set(
+                    request.permissions
+                ):
+                    raise ValueError("Research operation permissions were not granted")
+                roles = request.arguments.get("inputs", {})
+                if not isinstance(roles, dict):
+                    raise ValueError("Research inputs must be a named mapping")
+                inputs = {role: Path(value) for role, value in roles.items()}
+                for role, path in inputs.items():
+                    import re
+
+                    root = Path("/inputs") / role
+                    if (
+                        re.fullmatch(r"[a-z][a-z0-9_-]*", role) is None
+                        or not path.exists()
+                        or path.is_symlink()
+                        or not (path == root or path.parent == root and path.is_file())
+                    ):
+                        raise ValueError("Research input is outside its named read-only mount")
+                broker = WorkerBroker(sys.stdout, response.capacity)
+                with redirect_stdout(sys.stderr):
+                    response.experiment = execute(
+                        request.project,
+                        request.experiment_operation,
+                        settings,
+                        inputs,
+                        Path("/output"),
+                        broker,
+                    )
+            elif request.operation == "environment":
+                from ablitbench.parity.environment import EnvironmentExecutor
+
+                if not request.execute_tools or request.environment_request is None:
+                    raise ValueError("Environment actions require current tool execution authority")
+                if not Path("/output").is_dir():
+                    raise ValueError("Environment executor requires private output")
+                if environment_executor is None:
+                    fixture = Path(
+                        request.arguments.get("inputs", {}).get("fixture", "/inputs/fixture")
+                    )
+                    if (
+                        not (
+                            fixture == Path("/inputs/fixture")
+                            or fixture.parent == Path("/inputs/fixture")
+                            and fixture.is_file()
+                        )
+                        or fixture.is_symlink()
+                    ):
+                        raise ValueError("Environment fixture is outside its read-only input mount")
+                    environment_executor = EnvironmentExecutor(
+                        fixture if fixture.exists() else None, Path("/output")
+                    )
+                with redirect_stdout(sys.stderr):
+                    response.result = environment_executor.handle(
+                        request.environment_request.model_dump(mode="json", exclude_none=True)
+                    )
+            elif request.operation == "tool":
                 response.result = execute_tool(request)
             elif request.operation == "scan":
                 from ablitbench.engines import scan
@@ -484,7 +709,7 @@ def main() -> None:
                         response.fingerprint = fingerprint_model.summary()
                     else:
                         raise ValueError("Configured fingerprint engine and valid phase required")
-            else:
+            elif request.operation == "generate":
                 if model is None:
                     model = (
                         GGUFInference(request)
@@ -494,6 +719,8 @@ def main() -> None:
                 response.generation = Generation.model_validate(
                     model.generate(request.model_dump())
                 )
+            else:
+                raise ValueError("Unexpected host exchange outside an active research operation")
         except Exception as error:
             response.error = f"{type(error).__name__}: {error}"
         response.model_initialized = model is not None

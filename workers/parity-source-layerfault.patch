@@ -1,0 +1,41 @@
+--- a/src/judge.rs
++++ b/src/judge.rs
+@@ -69,7 +69,16 @@
+         bail!("cloud judge requires explicit --allow-cloud-judge opt-in");
+     }
+     let endpoint = Url::parse(endpoint).context("invalid cloud judge endpoint")?;
+-    if endpoint.scheme() != "https" {
++    let broker_endpoint = std::env::var("ABLIB_BROKER_ENDPOINT").ok();
++    let broker_transport = endpoint.scheme() == "http"
++        && endpoint.host_str() == Some("127.0.0.1")
++        && endpoint.port().is_some()
++        && endpoint.username().is_empty()
++        && endpoint.password().is_none()
++        && endpoint.query().is_none()
++        && endpoint.fragment().is_none()
++        && broker_endpoint.as_deref() == Some(endpoint.as_str());
++    if endpoint.scheme() != "https" && !broker_transport {
+         bail!("cloud judge endpoint must use HTTPS");
+     }
+     if !endpoint.username().is_empty() || endpoint.password().is_some() {
+--- a/src/platform/weekly.rs
++++ b/src/platform/weekly.rs
+@@ -71,7 +71,17 @@
+         .subject(&bodies.subject)
+         .header(lettre::message::header::ContentType::TEXT_HTML)
+         .body(bodies.html.clone())?;
+-    let mut builder = SmtpTransport::relay(host).context("unable to configure TLS SMTP relay")?;
++    let private_sink = std::env::var("ABLIB_SMTP_SINK").ok();
++    let sink_address = host.parse::<std::net::SocketAddr>().ok().filter(|address| {
++        address.ip() == std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1))
++            && address.port() != 0
++            && private_sink.as_deref() == Some(host)
++    });
++    let mut builder = if let Some(address) = sink_address {
++        SmtpTransport::builder_dangerous("127.0.0.1").port(address.port())
++    } else {
++        SmtpTransport::relay(host).context("unable to configure TLS SMTP relay")?
++    };
+     if let (Some(user), Some(pass)) = (username, password) {
+         builder = builder.credentials(Credentials::new(user.to_owned(), pass.to_owned()));
+     }

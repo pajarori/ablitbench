@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import csv
 import ctypes
 import importlib
@@ -7,7 +8,36 @@ import io
 import os
 import re
 import subprocess
+from collections.abc import Iterable
 from pathlib import Path
+from urllib.parse import quote, quote_plus
+
+REDACTED = "ABLIB_REDACTED_CREDENTIAL"
+
+
+def redact_text(text: str, values: Iterable[str]) -> str:
+    patterns = set()
+    for value in values:
+        if not value:
+            continue
+        patterns.update(
+            {
+                value,
+                base64.b64encode(value.encode()).decode(),
+                value.encode().hex(),
+                quote(value, safe=""),
+                quote_plus(value),
+            }
+        )
+    for representation in sorted(patterns, key=len, reverse=True):
+        text = text.replace(representation, REDACTED)
+    return text
+
+
+def private_directory(value: str) -> Path:
+    path = Path(value).resolve(strict=True)
+    restrict_directory(path)
+    return path
 
 
 def owner_sid(identity: bytes) -> str:

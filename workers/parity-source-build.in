@@ -1,0 +1,4 @@
+hatchling>=1.27,<2
+maturin===1.13.3
+setuptools==84.2.1
+wheel==0.48.0

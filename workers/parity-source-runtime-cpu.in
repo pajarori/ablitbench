@@ -1,0 +1,6 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+-r research.in
+modelscan[h5py,tensorflow]==0.8.8
+modelaudit[all,tensorflow] @ https://github.com/promptfoo/modelaudit/archive/415819fa0b58d097dd201c0fa3f41eba33431c78.tar.gz
+modelaudit-picklescan @ https://github.com/promptfoo/modelaudit/archive/415819fa0b58d097dd201c0fa3f41eba33431c78.tar.gz#subdirectory=packages/modelaudit-picklescan
+dnspython>=2.9,<3

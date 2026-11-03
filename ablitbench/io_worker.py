@@ -181,6 +181,30 @@ def prepare_model(
             pass
 
 
+def prepare_secret(source: Path, destination: Path) -> None:
+    from ablitbench.formats.snapshot import secure_open
+
+    descriptor = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(descriptor, "wb") as output, secure_open(source) as stream:
+            before = os.fstat(stream.fileno())
+            shutil.copyfileobj(stream, output, 1024 * 1024)
+            after = os.fstat(stream.fileno())
+            if (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) != (
+                after.st_dev,
+                after.st_ino,
+                after.st_size,
+                after.st_mtime_ns,
+            ):
+                raise ValueError("Secret input changed during private staging")
+            output.flush()
+            os.fsync(output.fileno())
+        os.chmod(destination, 0o444)
+    except BaseException:
+        destination.unlink(missing_ok=True)
+        raise
+
+
 def write_progress(request: dict[str, Any], record: dict[str, Any]) -> None:
     destination = Path(request["scratch"]) / "progress.json"
     temporary = destination.with_suffix(".partial")
@@ -193,6 +217,58 @@ def write_progress(request: dict[str, Any], record: dict[str, Any]) -> None:
 
 def execute(request: dict[str, Any]) -> Any:
     operation, values, scratch = request["operation"], request["values"], Path(request["scratch"])
+    if operation == "hub_revision":
+        from ablitbench.parity.hub import revision
+
+        return revision(Path(values[0]))
+    if operation == "trusted_acquire":
+        from ablitbench.parity.acquisition_worker import run
+        from ablitbench.provenance import implementation_identity
+
+        if request.get("implementation") != implementation_identity():
+            raise ValueError("Acquisition core identity differs; install the matching wheel")
+        return run(values[0])
+    if operation in {"environment_project", "environment_before", "environment_after"}:
+        from ablitbench.parity.environment import EnvironmentObserver
+
+        observer = EnvironmentObserver(Path(values[0]), Path(values[1]))
+        if operation == "environment_project":
+            return str(observer.project())
+        if operation == "environment_before":
+            return observer.before(values[2])
+        return observer.after(values[2], values[3], Path(values[4]))
+    if operation == "prepare_secret":
+        prepare_secret(Path(values[0]), Path(values[1]))
+        return None
+    if operation == "normalize_outcomes":
+        from ablitbench.parity.artifacts import normalize_outcomes
+
+        return normalize_outcomes(Path(values[0]), Path(values[1]), values[2], values[3], values[4])
+    if operation == "normalize_findings":
+        from ablitbench.parity.artifacts import normalize_findings
+
+        return normalize_findings(Path(values[0]), Path(values[1]), values[2], values[3])
+    if operation == "normalize_worker_response":
+        from ablitbench.response_spool import normalize_worker_response
+
+        return normalize_worker_response(Path(values[0]), Path(values[1]))
+    if operation == "artifact_input":
+        root = Path(values[0]).resolve(strict=True)
+        path = root
+        for part in Path(values[1]).parts:
+            if part in {".", ".."}:
+                raise ValueError("Unsafe artifact dependency path")
+            path = path / part
+            if path.is_symlink():
+                raise ValueError("Artifact dependency symlink rejected")
+        resolved = path.resolve(strict=True)
+        if not resolved.is_relative_to(root):
+            raise ValueError("Artifact dependency escaped output directory")
+        return str(resolved)
+    if operation == "prepare_source":
+        from ablitbench.parity.sources import prepare_source
+
+        return str(prepare_source(Path(values[0]), values[1], Path(values[2]), scratch))
     if operation == "resolve":
         from ablitbench.targets import resolve
 
@@ -222,12 +298,33 @@ def execute(request: dict[str, Any]) -> Any:
         return remove_research(Path(values[0]), values[1])
     if operation == "model_link":
         return prepare_model(Path(values[0]), Path(values[1]), Path(values[2]), scratch)
+    if operation == "redact_response_wire":
+        from ablitbench.response_spool import redact_response_wire
+
+        return redact_response_wire(
+            Path(values[0]),
+            Path(values[1]),
+            values[2],
+            values[3],
+            values[4] if len(values) > 4 else "ABLIB_REDACTED_CREDENTIAL",
+        )
     if operation == "decode_generation":
         from ablitbench.response_spool import decode_generation
 
         return decode_generation(
-            Path(values[0]), Path(values[1]), values[2], values[3], values[4], values[5]
+            Path(values[0]),
+            Path(values[1]),
+            values[2],
+            values[3],
+            values[4],
+            values[5],
+            values[6] if len(values) > 6 else None,
+            values[7] if len(values) > 7 else None,
         )
+    if operation == "decode_probe":
+        from ablitbench.response_spool import decode_probe
+
+        return decode_probe(Path(values[0]), Path(values[1]), values[2])
     if operation == "hash":
         from ablitbench.targets import hash_file
 
@@ -275,8 +372,10 @@ def execute(request: dict[str, Any]) -> Any:
         from ablitbench.checks.artifacts import paths
 
         with Path(values[1]).open("w", encoding="utf-8") as stream:
-            for path, error in paths(Path(values[0])):
-                stream.write(json.dumps([str(path) if path else None, error]) + "\n")
+            for artifact_path, error in paths(Path(values[0])):
+                stream.write(
+                    json.dumps([str(artifact_path) if artifact_path else None, error]) + "\n"
+                )
             stream.flush()
             os.fsync(stream.fileno())
         return None

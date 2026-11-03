@@ -40,6 +40,12 @@ from ablitbench.workers import Worker
 
 REGISTRY = [
     CheckSpec(
+        id="parity",
+        category="research-operations",
+        capability="parity",
+        description="Explicit upstream research workflows and feature parity operations",
+    ),
+    CheckSpec(
         id="source",
         version="2",
         category="source-security",
@@ -119,6 +125,7 @@ class Context:
         worker: Worker,
         reference: ResolvedTarget | None,
         judge: Transport | None = None,
+        base: ResolvedTarget | None = None,
     ) -> None:
         self.config, self.target, self.check, self.store = (
             config.model_copy(update={"evaluation": None}),
@@ -128,11 +135,30 @@ class Context:
         )
         self.job = job
         self.judge = judge
+        self.base = base
         self.canary, self.transport, self.worker, self.reference = (
             canary,
             transport,
             worker,
             reference,
+        )
+        self.worker.on_protocol_error = self.protocol_error
+
+    async def protocol_error(self, path: Path) -> None:
+        from ablitbench.checks.artifacts import capture
+
+        reference, stable = await self.io(capture, self, path)
+        self.store.commit_blob(reference)
+        self.store.event(
+            Event(
+                kind="worker_protocol_incomplete",
+                data={
+                    "job": self.store.job_key(self.job),
+                    "evidence": reference.sha256,
+                    "captured_bytes": reference.size,
+                    "stable": stable,
+                },
+            )
         )
 
     def checkpoint(self, result: CheckResult) -> None:
@@ -248,6 +274,17 @@ class Context:
                 stream=False,
             )
             observed = generation
+            if (
+                generation.finish not in {"stop", "end_turn", "stop_sequence", "completed"}
+                or generation.tools
+            ):
+                evidence = self.store.evidence(
+                    {
+                        "judge_inconclusive": "Unverified or incomplete final response",
+                        "response": generation.model_dump(),
+                    }
+                )
+                return None, [evidence]
             verdict = JudgeVerdict.model_validate_json(generation.text)
             evidence = self.store.evidence(
                 {
@@ -281,7 +318,7 @@ class Context:
         self,
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
-        stream: bool = True,
+        stream: bool | None = None,
     ) -> Generation:
         started = time.perf_counter()
         observed: Generation | None = None
@@ -289,11 +326,21 @@ class Context:
             if self.transport:
                 observed = await self.transport.generate(messages, tools, stream)
             else:
+                from ablitbench.generation import text_content
+
                 system_contents = [
-                    message["content"]
+                    text_content(message["content"])
                     for message in messages
-                    if message.get("role") == "system" and isinstance(message.get("content"), str)
+                    if message.get("role") == "system"
                 ]
+                settings: dict[str, Any] = {}
+                if self.config.generation_settings:
+                    settings["generation_settings"] = self.config.generation_settings
+                if self.config.output_modalities != ["text"] or self.config.output_audio_format:
+                    settings.update(
+                        output_modalities=self.config.output_modalities,
+                        output_audio_format=self.config.output_audio_format,
+                    )
                 response = await self.worker.generate(
                     messages,
                     tools,
@@ -304,6 +351,7 @@ class Context:
                         for marker in (self.canary, TOOL_AUTHORIZATION_POLICY)
                         if any(marker in content for content in system_contents)
                     ],
+                    **settings,
                 )
                 observed = Generation.model_validate(response["generation"])
                 observed.evidence = [
@@ -354,7 +402,9 @@ class Scanner:
                         if config.mode == "source"
                         else {"api", "generation"},
                     )
+                resolved.target._api_key = target._api_key
                 targets.append(resolved)
+                resolved.capabilities.add("parity")
                 if config.inference and config.mode == "source":
                     resolved.capabilities.add("generation")
                 for spec in REGISTRY:
@@ -365,6 +415,86 @@ class Scanner:
                         and spec.category not in config.checks
                     ):
                         job.status, job.reason = "not_requested", "Not selected by invocation"
+                    elif spec.id == "parity":
+                        if not config.experiments:
+                            job.status, job.reason = (
+                                "not_requested",
+                                "No research operations selected",
+                            )
+                        else:
+                            try:
+                                from ablitbench.parity.catalog import (
+                                    available_modes,
+                                    effective_configuration,
+                                    operation,
+                                    requirements,
+                                    requires_execution,
+                                )
+
+                                for task in config.experiments:
+                                    _, metadata = operation(task.project, task.operation)
+                                    normalized = effective_configuration(
+                                        task.project,
+                                        task.operation,
+                                        task.settings,
+                                        target.model_dump(),
+                                    )
+                                    if (
+                                        normalized.get("device", config.runtime.device)
+                                        != config.runtime.device
+                                    ):
+                                        raise CapabilityError(
+                                            "Research operation device conflicts with runtime"
+                                        )
+                                    if config.mode not in available_modes(
+                                        task.project, task.operation, normalized
+                                    ):
+                                        raise CapabilityError(
+                                            "Research operation is unavailable in this mode"
+                                        )
+                                    if (
+                                        (
+                                            requires_execution(
+                                                task.project,
+                                                task.operation,
+                                                normalized,
+                                                "inference",
+                                            )
+                                            or "generation-broker"
+                                            in metadata.get("capabilities", [])
+                                        )
+                                        and config.mode == "source"
+                                        and not config.inference
+                                    ):
+                                        raise CapabilityError(
+                                            "Research model execution requires source --inference"
+                                        )
+                                    if (
+                                        requires_execution(
+                                            task.project, task.operation, normalized, "tools"
+                                        )
+                                        and not config.execute_tools
+                                    ):
+                                        raise CapabilityError(
+                                            "Research tool execution requires --execute-tools"
+                                        )
+                                    if requirements(task.project, task.operation, normalized) - set(
+                                        task.permissions
+                                    ):
+                                        raise CapabilityError(
+                                            "Explicit research permissions are required"
+                                        )
+                                    if metadata.get("trusted_io"):
+                                        if config.runtime.acquisition_python is None:
+                                            raise CapabilityError(
+                                                "Trusted SDK Python is required for acquisition"
+                                            )
+                                    else:
+                                        Worker(config.runtime).validate(
+                                            config.runtime.parity_images.get(task.project)
+                                        )
+                            except (CapabilityError, ValueError, ImportError) as error:
+                                job.status, job.reason = "blocked", str(error)
                     elif spec.id == "engines" and not config.runtime.research_engines:
                         job.status, job.reason = "not_requested", "No research engines selected"
                     elif spec.id == "engines" and config.mode == "source":
@@ -483,8 +613,8 @@ class Scanner:
         dataset_count = 0
         dataset_info = None
         replay_directory: Path | None = None
-        if config.replay and config.adaptive is not None:
-            raise ValueError("Replay uses saved cases; start adaptive synthesis in a separate run")
+        if config.replay and (config.adaptive is not None or config.experiments):
+            raise ValueError("Replay uses saved cases; start research operations in a separate run")
         if config.dataset:
             from ablitbench.manifests import inspect_dataset
 
@@ -706,8 +836,9 @@ class Scanner:
                 if (
                     prior
                     and prior[0] not in {"completed", "not_applicable", "not_requested"}
-                    and job.check.capability in {"api", "generation"}
+                    and job.check.capability in {"api", "generation", "parity"}
                     and not (job.check.id == "behavior" and store.has_episodes(job))
+                    and job.check.id != "parity"
                 ):
                     result = prior[1] if prior[1] else CheckResult()
                     result.status = "blocked"
@@ -728,6 +859,7 @@ class Scanner:
                             and store.has_units(job)
                             or job.check.id == "behavior"
                             and store.has_episodes(job)
+                            or job.check.id == "parity"
                         )
                     ):
                         store.checkpoint(job, "running")
@@ -749,6 +881,7 @@ class Scanner:
                         workers[job.target],
                         references.get(job.target),
                         judge_transport,
+                        bases.get(job.target),
                     )
                     try:
                         if config.mode == "source" and job.check.capability == "generation":

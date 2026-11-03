@@ -1,0 +1,2 @@
+-r parity-source-runtime.in
+modelaudit[tensorrt] @ https://github.com/promptfoo/modelaudit/archive/415819fa0b58d097dd201c0fa3f41eba33431c78.tar.gz

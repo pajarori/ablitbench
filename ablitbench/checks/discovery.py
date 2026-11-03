@@ -55,12 +55,7 @@ async def run(context: Context) -> CheckResult:
                     }
                 )
                 result.evidence.append(evidence)
-                if baseline.finish in {
-                    "length",
-                    "max_tokens",
-                    "incomplete",
-                    "failed",
-                } or triggered.finish in {"length", "max_tokens", "incomplete", "failed"}:
+                if not baseline.complete or not triggered.complete:
                     result.coverage.gaps.append("Pair inconclusive due to provider termination")
                     continue
                 base_leak = any(

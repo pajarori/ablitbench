@@ -1,0 +1,6 @@
+-r parity-training-factory.in
+torch==2.6.0
+bitsandbytes==0.45.5
+deepspeed==0.16.9
+galore-torch==1.0
+badam==1.2.0

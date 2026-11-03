@@ -39,16 +39,17 @@ Checks include loader code, metadata, unsafe serialization, archives, and Safete
 Assess an API endpoint:
 
 ```bash
-ablib api https://provider.example/v1 --model model-name
+ablib api https://provider.example/v1 --model model-name --key YOUR_API_KEY
 ```
 
-Set credentials through `ABLIB_API_KEY` or `HF_TOKEN`. API scans send inference requests and may incur provider costs. OpenAI Chat/Responses and Anthropic Messages protocols are supported.
+Use `--key` for API credentials. Hugging Face uses `HF_TOKEN`. API scans send inference requests and may incur provider costs. OpenAI Chat/Responses and Anthropic Messages protocols are supported.
 
 Compare weights, export JSON, or inspect available options:
 
 ```bash
 ablib source ./models/suspect --reference ./models/base
 ablib source ./models/suspect --format json > report.json
+ablib source --operations
 ablib api --help
 ablib source --help
 ```

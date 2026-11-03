@@ -11,3 +11,4 @@
 !workers/discovery.lock
 !workers/discovery-engine.lock
 !workers/activation.lock
+!workers/parity-*

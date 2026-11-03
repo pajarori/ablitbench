@@ -1,0 +1,1208 @@
+{
+  "modelaudit": {
+    "revision": "415819fa0b58d097dd201c0fa3f41eba33431c78",
+    "scanners": [
+      {
+        "operation": "scan.pickle",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "PickleScanner",
+        "module": "modelaudit.scanners.pickle_scanner",
+        "extensions": [
+          ".pkl",
+          ".pickle",
+          ".dill",
+          ".bin",
+          ".pt",
+          ".pth",
+          ".ckpt"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "PickleScanner",
+          "description": "Scans Python pickle files for suspicious code references",
+          "extensions": [
+            ".pkl",
+            ".pickle",
+            ".dill",
+            ".bin",
+            ".pt",
+            ".pth",
+            ".ckpt"
+          ],
+          "scanner_only_extensions": [
+            ".joblib"
+          ],
+          "priority": 1
+        }
+      },
+      {
+        "operation": "scan.pytorch_binary",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "PyTorchBinaryScanner",
+        "module": "modelaudit.scanners.pytorch_binary_scanner",
+        "extensions": [
+          ".bin"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "PyTorchBinaryScanner",
+          "description": "Scans PyTorch binary files",
+          "extensions": [
+            ".bin"
+          ],
+          "priority": 3
+        }
+      },
+      {
+        "operation": "scan.tf_savedmodel",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "TensorFlowSavedModelScanner",
+        "module": "modelaudit.scanners.tf_savedmodel_scanner",
+        "extensions": [
+          ".pb",
+          ""
+        ],
+        "dependencies": [
+          "tensorflow"
+        ],
+        "descriptor": {
+          "class": "TensorFlowSavedModelScanner",
+          "description": "Scans TensorFlow SavedModel for suspicious operations",
+          "extensions": [
+            ".pb",
+            ""
+          ],
+          "header_formats": [
+            "tensorflow_directory",
+            "protobuf",
+            "tf_savedmodel"
+          ],
+          "priority": 4,
+          "dependencies": [
+            "tensorflow"
+          ],
+          "numpy_sensitive": true
+        }
+      },
+      {
+        "operation": "scan.tf_metagraph",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "TensorFlowMetaGraphScanner",
+        "module": "modelaudit.scanners.tf_metagraph_scanner",
+        "extensions": [
+          ".meta"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "TensorFlowMetaGraphScanner",
+          "description": "Scans TensorFlow MetaGraph .meta files",
+          "extensions": [
+            ".meta"
+          ],
+          "header_formats": [
+            "tf_metagraph"
+          ],
+          "priority": 4
+        }
+      },
+      {
+        "operation": "scan.keras_zip",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "KerasZipScanner",
+        "module": "modelaudit.scanners.keras_zip_scanner",
+        "extensions": [
+          ".keras"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "KerasZipScanner",
+          "description": "Scans ZIP-based Keras model files for suspicious configurations and Lambda layers",
+          "extensions": [
+            ".keras"
+          ],
+          "content_routed_extensions": [
+            ".zip"
+          ],
+          "priority": 4
+        }
+      },
+      {
+        "operation": "scan.keras_h5",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "KerasH5Scanner",
+        "module": "modelaudit.scanners.keras_h5_scanner",
+        "extensions": [
+          ".h5",
+          ".hdf5",
+          ".keras"
+        ],
+        "dependencies": [
+          "h5py"
+        ],
+        "descriptor": {
+          "class": "KerasH5Scanner",
+          "description": "Scans Keras H5 model files for suspicious layer configurations",
+          "extensions": [
+            ".h5",
+            ".hdf5",
+            ".keras"
+          ],
+          "content_routed_extensions": [
+            ""
+          ],
+          "header_formats": [
+            "hdf5",
+            "keras"
+          ],
+          "priority": 5,
+          "dependencies": [
+            "h5py"
+          ],
+          "numpy_sensitive": true
+        }
+      },
+      {
+        "operation": "scan.onnx",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "OnnxScanner",
+        "module": "modelaudit.scanners.onnx_scanner",
+        "extensions": [
+          ".onnx"
+        ],
+        "dependencies": [
+          "onnx"
+        ],
+        "descriptor": {
+          "class": "OnnxScanner",
+          "description": "Scans ONNX model files",
+          "extensions": [
+            ".onnx"
+          ],
+          "priority": 6,
+          "dependencies": [
+            "onnx"
+          ],
+          "numpy_sensitive": true
+        }
+      },
+      {
+        "operation": "scan.protobuf_model_candidate",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "ProtobufModelCandidateScanner",
+        "module": "modelaudit.scanners.protobuf_model_candidate_scanner",
+        "extensions": [],
+        "dependencies": [],
+        "descriptor": {
+          "class": "ProtobufModelCandidateScanner",
+          "description": "Tentatively analyzes bounded protobuf model candidates",
+          "extensions": [],
+          "header_formats": [
+            "protobuf_model_candidate"
+          ],
+          "priority": 6
+        }
+      },
+      {
+        "operation": "scan.coreml",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "CoreMLScanner",
+        "module": "modelaudit.scanners.coreml_scanner",
+        "extensions": [
+          ".mlmodel"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "CoreMLScanner",
+          "description": "Scans CoreML .mlmodel files",
+          "extensions": [
+            ".mlmodel"
+          ],
+          "priority": 7
+        }
+      },
+      {
+        "operation": "scan.openvino",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "OpenVinoScanner",
+        "module": "modelaudit.scanners.openvino_scanner",
+        "extensions": [
+          ".xml"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "OpenVinoScanner",
+          "description": "Scans OpenVINO IR model files",
+          "extensions": [
+            ".xml"
+          ],
+          "priority": 6
+        }
+      },
+      {
+        "operation": "scan.pytorch_zip",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "PyTorchZipScanner",
+        "module": "modelaudit.scanners.pytorch_zip_scanner",
+        "extensions": [
+          ".pt",
+          ".pth",
+          ".ckpt",
+          ".pkl",
+          ".bin"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "PyTorchZipScanner",
+          "description": "Scans PyTorch model files for suspicious code in embedded pickles",
+          "extensions": [
+            ".pt",
+            ".pth",
+            ".ckpt",
+            ".pkl",
+            ".bin"
+          ],
+          "priority": 2
+        }
+      },
+      {
+        "operation": "scan.executorch",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "ExecuTorchScanner",
+        "module": "modelaudit.scanners.executorch_scanner",
+        "extensions": [
+          ".ptl",
+          ".pte"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "ExecuTorchScanner",
+          "description": "Scans ExecuTorch mobile archives",
+          "extensions": [
+            ".ptl",
+            ".pte"
+          ],
+          "priority": 6
+        }
+      },
+      {
+        "operation": "scan.gguf",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "GgufScanner",
+        "module": "modelaudit.scanners.gguf_scanner",
+        "extensions": [
+          ".gguf",
+          ".ggml",
+          ".ggmf",
+          ".ggjt",
+          ".ggla",
+          ".ggsa"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "GgufScanner",
+          "description": "Validates GGUF/GGML model file headers, metadata, and tensor integrity",
+          "extensions": [
+            ".gguf",
+            ".ggml",
+            ".ggmf",
+            ".ggjt",
+            ".ggla",
+            ".ggsa"
+          ],
+          "header_formats": [
+            "gguf",
+            "ggml"
+          ],
+          "priority": 7
+        }
+      },
+      {
+        "operation": "scan.joblib",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "JoblibScanner",
+        "module": "modelaudit.scanners.joblib_scanner",
+        "extensions": [
+          ".joblib"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "JoblibScanner",
+          "description": "Scans joblib files by decompressing and analyzing embedded pickle",
+          "extensions": [
+            ".joblib"
+          ],
+          "priority": 8
+        }
+      },
+      {
+        "operation": "scan.r_serialized",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "RSerializedScanner",
+        "module": "modelaudit.scanners.r_serialized_scanner",
+        "extensions": [
+          ".rds",
+          ".rda",
+          ".rdata"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "RSerializedScanner",
+          "description": "Scans R serialized model files",
+          "extensions": [
+            ".rds",
+            ".rda",
+            ".rdata"
+          ],
+          "priority": 8
+        }
+      },
+      {
+        "operation": "scan.skops",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "SkopsScanner",
+        "module": "modelaudit.scanners.skops_scanner",
+        "extensions": [
+          ".skops"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "SkopsScanner",
+          "description": "Scans skops files for CVE-2025-54412, CVE-2025-54413, CVE-2025-54886 vulnerabilities",
+          "extensions": [
+            ".skops"
+          ],
+          "content_routed_extensions": [
+            ".zip"
+          ],
+          "priority": 8
+        }
+      },
+      {
+        "operation": "scan.numpy",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "NumPyScanner",
+        "module": "modelaudit.scanners.numpy_scanner",
+        "extensions": [
+          ".npy"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "NumPyScanner",
+          "description": "Scans NumPy array files",
+          "extensions": [
+            ".npy"
+          ],
+          "priority": 9
+        }
+      },
+      {
+        "operation": "scan.oci_layer",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "OciLayerScanner",
+        "module": "modelaudit.scanners.oci_layer_scanner",
+        "extensions": [
+          ".manifest"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "OciLayerScanner",
+          "description": "Scans OCI container layers",
+          "extensions": [
+            ".manifest"
+          ],
+          "priority": 10
+        }
+      },
+      {
+        "operation": "scan.text",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "TextScanner",
+        "module": "modelaudit.scanners.text_scanner",
+        "extensions": [
+          ".txt",
+          ".md",
+          ".markdown",
+          ".rst",
+          ".env"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "TextScanner",
+          "description": "Scans ML-related text files",
+          "extensions": [
+            ".txt",
+            ".md",
+            ".markdown",
+            ".rst",
+            ".env"
+          ],
+          "content_routed_filenames": [
+            "readme",
+            "model_card",
+            "requirements.txt",
+            ".env",
+            "tokenizer-vocab.txt",
+            "tokenizer.txt",
+            "tokenizer_vocab.txt",
+            "tokens.txt",
+            "vocab.txt",
+            "vocabulary.txt",
+            "merges.txt",
+            "labels.txt",
+            "classes.txt"
+          ],
+          "priority": 0
+        }
+      },
+      {
+        "operation": "scan.manifest",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "ManifestScanner",
+        "module": "modelaudit.scanners.manifest_scanner",
+        "extensions": [
+          ".json",
+          ".yaml",
+          ".yml",
+          ".xml",
+          ".toml",
+          ".ini",
+          ".cfg",
+          ".config",
+          ".manifest",
+          ".model",
+          ".metadata"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "ManifestScanner",
+          "description": "Scans model manifest files for blacklisted names and terms",
+          "extensions": [
+            ".json",
+            ".yaml",
+            ".yml",
+            ".xml",
+            ".toml",
+            ".ini",
+            ".cfg",
+            ".config",
+            ".manifest",
+            ".model",
+            ".metadata"
+          ],
+          "content_routed_filenames": [
+            "config.json",
+            "model.json",
+            "params.json",
+            "hyperparams.yaml",
+            "training_args.json",
+            "dataset_info.json",
+            "environment.yml",
+            "conda.yaml",
+            "requirements.txt",
+            "metadata.json",
+            "index.json",
+            "model_config.json"
+          ],
+          "priority": 12
+        }
+      },
+      {
+        "operation": "scan.pmml",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "PmmlScanner",
+        "module": "modelaudit.scanners.pmml_scanner",
+        "extensions": [
+          ".pmml"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "PmmlScanner",
+          "description": "Scans PMML model files",
+          "extensions": [
+            ".pmml"
+          ],
+          "priority": 12
+        }
+      },
+      {
+        "operation": "scan.weight_distribution",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "WeightDistributionScanner",
+        "module": "modelaudit.scanners.weight_distribution_scanner",
+        "extensions": [
+          ".pt",
+          ".pth",
+          ".h5",
+          ".keras",
+          ".hdf5",
+          ".pb",
+          ".onnx"
+        ],
+        "dependencies": [
+          "torch",
+          "h5py",
+          "tensorflow",
+          "onnx",
+          "safetensors"
+        ],
+        "descriptor": {
+          "class": "WeightDistributionScanner",
+          "description": "Analyzes weight distributions for anomalies",
+          "extensions": [
+            ".pt",
+            ".pth",
+            ".h5",
+            ".keras",
+            ".hdf5",
+            ".pb",
+            ".onnx"
+          ],
+          "priority": 13,
+          "dependencies": [
+            "torch",
+            "h5py",
+            "tensorflow",
+            "onnx",
+            "safetensors"
+          ],
+          "numpy_sensitive": true
+        }
+      },
+      {
+        "operation": "scan.safetensors",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "SafeTensorsScanner",
+        "module": "modelaudit.scanners.safetensors_scanner",
+        "extensions": [
+          ".safetensors"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "SafeTensorsScanner",
+          "description": "Scans SafeTensors model files",
+          "extensions": [
+            ".safetensors"
+          ],
+          "priority": 14
+        }
+      },
+      {
+        "operation": "scan.flax_msgpack",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "FlaxMsgpackScanner",
+        "module": "modelaudit.scanners.flax_msgpack_scanner",
+        "extensions": [
+          ".msgpack",
+          ".flax",
+          ".orbax",
+          ".jax"
+        ],
+        "dependencies": [
+          "msgpack"
+        ],
+        "descriptor": {
+          "class": "FlaxMsgpackScanner",
+          "description": "Scans Flax/JAX msgpack checkpoint files with enhanced security analysis",
+          "extensions": [
+            ".msgpack",
+            ".flax",
+            ".orbax",
+            ".jax"
+          ],
+          "header_formats": [
+            "flax_msgpack"
+          ],
+          "priority": 15,
+          "dependencies": [
+            "msgpack"
+          ]
+        }
+      },
+      {
+        "operation": "scan.jax_checkpoint",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "JaxCheckpointScanner",
+        "module": "modelaudit.scanners.jax_checkpoint_scanner",
+        "extensions": [
+          ".ckpt",
+          ".checkpoint",
+          ".orbax-checkpoint",
+          ".pickle",
+          ""
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "JaxCheckpointScanner",
+          "description": "Scans JAX checkpoint files in various serialization formats",
+          "extensions": [
+            ".ckpt",
+            ".checkpoint",
+            ".orbax-checkpoint",
+            ".pickle",
+            ""
+          ],
+          "content_routed_extensions": [
+            ".json"
+          ],
+          "content_routed_filenames": [
+            "metadata.json",
+            "orbax_checkpoint_metadata.json"
+          ],
+          "header_formats": [
+            "jax_checkpoint"
+          ],
+          "priority": 11
+        }
+      },
+      {
+        "operation": "scan.tflite",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "TFLiteScanner",
+        "module": "modelaudit.scanners.tflite_scanner",
+        "extensions": [
+          ".tflite"
+        ],
+        "dependencies": [
+          "tflite"
+        ],
+        "descriptor": {
+          "class": "TFLiteScanner",
+          "description": "Scans TensorFlow Lite model files",
+          "extensions": [
+            ".tflite"
+          ],
+          "priority": 2,
+          "dependencies": [
+            "tflite"
+          ],
+          "numpy_sensitive": true
+        }
+      },
+      {
+        "operation": "scan.tensorrt",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "TensorRTScanner",
+        "module": "modelaudit.scanners.tensorrt_scanner",
+        "extensions": [
+          ".engine",
+          ".plan",
+          ".trt"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "TensorRTScanner",
+          "description": "Scans TensorRT engine files",
+          "extensions": [
+            ".engine",
+            ".plan",
+            ".trt"
+          ],
+          "priority": 17
+        }
+      },
+      {
+        "operation": "scan.paddle",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "PaddleScanner",
+        "module": "modelaudit.scanners.paddle_scanner",
+        "extensions": [
+          ".pdmodel",
+          ".pdiparams"
+        ],
+        "dependencies": [
+          "paddlepaddle"
+        ],
+        "descriptor": {
+          "class": "PaddleScanner",
+          "description": "Scans PaddlePaddle model files",
+          "extensions": [
+            ".pdmodel",
+            ".pdiparams"
+          ],
+          "priority": 18,
+          "dependencies": [
+            "paddlepaddle"
+          ],
+          "numpy_sensitive": true
+        }
+      },
+      {
+        "operation": "scan.cntk",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "CntkScanner",
+        "module": "modelaudit.scanners.cntk_scanner",
+        "extensions": [
+          ".dnn",
+          ".cmf"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "CntkScanner",
+          "description": "Scans CNTK .dnn/.cmf model artifacts",
+          "extensions": [
+            ".dnn",
+            ".cmf"
+          ],
+          "priority": 18
+        }
+      },
+      {
+        "operation": "scan.rknn",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "RknnScanner",
+        "module": "modelaudit.scanners.rknn_scanner",
+        "extensions": [
+          ".rknn"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "RknnScanner",
+          "description": "Scans Rockchip RKNN model files",
+          "extensions": [
+            ".rknn"
+          ],
+          "priority": 19
+        }
+      },
+      {
+        "operation": "scan.torch7",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "Torch7Scanner",
+        "module": "modelaudit.scanners.torch7_scanner",
+        "extensions": [
+          ".t7",
+          ".th",
+          ".net"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "Torch7Scanner",
+          "description": "Scans legacy Torch7 serialized model files",
+          "extensions": [
+            ".t7",
+            ".th",
+            ".net"
+          ],
+          "priority": 19
+        }
+      },
+      {
+        "operation": "scan.tar",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "TarScanner",
+        "module": "modelaudit.scanners.tar_scanner",
+        "extensions": [
+          ".tar",
+          ".tar.gz",
+          ".tgz",
+          ".tar.bz2",
+          ".tbz2",
+          ".tar.xz",
+          ".txz"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "TarScanner",
+          "description": "Scans TAR archive files and their contents recursively",
+          "extensions": [
+            ".tar",
+            ".tar.gz",
+            ".tgz",
+            ".tar.bz2",
+            ".tbz2",
+            ".tar.xz",
+            ".txz"
+          ],
+          "priority": 98
+        }
+      },
+      {
+        "operation": "scan.jinja2_template",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "Jinja2TemplateScanner",
+        "module": "modelaudit.scanners.jinja2_template_scanner",
+        "extensions": [
+          ".gguf",
+          ".json",
+          ".yaml",
+          ".yml",
+          ".jinja",
+          ".j2",
+          ".template"
+        ],
+        "dependencies": [
+          "jinja2",
+          "gguf"
+        ],
+        "descriptor": {
+          "class": "Jinja2TemplateScanner",
+          "description": "Scans for Jinja2 template injection vulnerabilities in ML models",
+          "extensions": [
+            ".gguf",
+            ".json",
+            ".yaml",
+            ".yml",
+            ".jinja",
+            ".j2",
+            ".template"
+          ],
+          "priority": 14,
+          "dependencies": [
+            "jinja2",
+            "gguf"
+          ]
+        }
+      },
+      {
+        "operation": "scan.metadata",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "MetadataScanner",
+        "module": "modelaudit.scanners.metadata_scanner",
+        "extensions": [
+          ".md",
+          ".markdown",
+          ".rst",
+          ".txt",
+          ".yml",
+          ".yaml"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "MetadataScanner",
+          "description": "Scans model documentation files for security issues",
+          "extensions": [
+            ".md",
+            ".markdown",
+            ".rst",
+            ".txt",
+            ".yml",
+            ".yaml"
+          ],
+          "content_routed_filenames": [
+            "readme",
+            "model_card"
+          ],
+          "priority": 1
+        }
+      },
+      {
+        "operation": "scan.sevenzip",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "SevenZipScanner",
+        "module": "modelaudit.scanners.sevenzip_scanner",
+        "extensions": [
+          ".7z"
+        ],
+        "dependencies": [
+          "py7zr"
+        ],
+        "descriptor": {
+          "class": "SevenZipScanner",
+          "description": "Scans 7-Zip archive files",
+          "extensions": [
+            ".7z"
+          ],
+          "priority": 97,
+          "dependencies": [
+            "py7zr"
+          ]
+        }
+      },
+      {
+        "operation": "scan.lightgbm",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "LightGBMScanner",
+        "module": "modelaudit.scanners.lightgbm_scanner",
+        "extensions": [
+          ".model",
+          ".txt",
+          ".lgb",
+          ".lightgbm"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "LightGBMScanner",
+          "description": "Scans native LightGBM model files",
+          "extensions": [
+            ".model",
+            ".txt",
+            ".lgb",
+            ".lightgbm"
+          ],
+          "priority": 6
+        }
+      },
+      {
+        "operation": "scan.llamafile",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "LlamafileScanner",
+        "module": "modelaudit.scanners.llamafile_scanner",
+        "extensions": [
+          ".llamafile",
+          ".exe",
+          ""
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "LlamafileScanner",
+          "description": "Scans Llamafile executable model artifacts",
+          "extensions": [
+            ".llamafile",
+            ".exe",
+            ""
+          ],
+          "priority": 6
+        }
+      },
+      {
+        "operation": "scan.xgboost",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "XGBoostScanner",
+        "module": "modelaudit.scanners.xgboost_scanner",
+        "extensions": [
+          ".bst",
+          ".model",
+          ".json",
+          ".ubj",
+          ""
+        ],
+        "dependencies": [
+          "xgboost",
+          "ubjson"
+        ],
+        "descriptor": {
+          "class": "XGBoostScanner",
+          "description": "Scans XGBoost model files for security vulnerabilities",
+          "extensions": [
+            ".bst",
+            ".model",
+            ".json",
+            ".ubj",
+            ""
+          ],
+          "remote_excluded_extensions": [
+            ""
+          ],
+          "priority": 7,
+          "dependencies": [
+            "xgboost",
+            "ubjson"
+          ],
+          "numpy_sensitive": true
+        }
+      },
+      {
+        "operation": "scan.mxnet",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "MXNetScanner",
+        "module": "modelaudit.scanners.mxnet_scanner",
+        "extensions": [
+          ".json",
+          ".params"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "MXNetScanner",
+          "description": "Scans MXNet symbol/params model artifacts",
+          "extensions": [
+            ".json",
+            ".params"
+          ],
+          "priority": 8
+        }
+      },
+      {
+        "operation": "scan.catboost",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "CatBoostScanner",
+        "module": "modelaudit.scanners.catboost_scanner",
+        "extensions": [
+          ".cbm"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "CatBoostScanner",
+          "description": "Scans CatBoost .cbm model files for suspicious metadata indicators",
+          "extensions": [
+            ".cbm"
+          ],
+          "priority": 8
+        }
+      },
+      {
+        "operation": "scan.nemo",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "NemoScanner",
+        "module": "modelaudit.scanners.nemo_scanner",
+        "extensions": [
+          ".nemo"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "NemoScanner",
+          "description": "Scans NVIDIA NeMo model files for Hydra _target_ injection",
+          "extensions": [
+            ".nemo"
+          ],
+          "priority": 14
+        }
+      },
+      {
+        "operation": "scan.torchserve_mar",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "TorchServeMarScanner",
+        "module": "modelaudit.scanners.torchserve_mar_scanner",
+        "extensions": [
+          ".mar"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "TorchServeMarScanner",
+          "description": "Scans TorchServe .mar model archive files",
+          "extensions": [
+            ".mar"
+          ],
+          "priority": 96
+        }
+      },
+      {
+        "operation": "scan.compressed",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "CompressedScanner",
+        "module": "modelaudit.scanners.compressed_scanner",
+        "extensions": [
+          ".gz",
+          ".bz2",
+          ".xz",
+          ".lz4",
+          ".zlib"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "CompressedScanner",
+          "description": "Scans standalone compressed wrappers and routes inner payloads to existing scanners",
+          "extensions": [
+            ".gz",
+            ".bz2",
+            ".xz",
+            ".lz4",
+            ".zlib"
+          ],
+          "header_formats": [
+            "gzip",
+            "bzip2",
+            "xz",
+            "lz4",
+            "zlib"
+          ],
+          "priority": 95
+        }
+      },
+      {
+        "operation": "scan.rar",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "RarScanner",
+        "module": "modelaudit.scanners.rar_scanner",
+        "extensions": [
+          ".rar"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "RarScanner",
+          "description": "Fails closed on RAR archives because RAR extraction is unsupported",
+          "extensions": [
+            ".rar"
+          ],
+          "header_formats": [
+            "rar"
+          ],
+          "priority": 96
+        }
+      },
+      {
+        "operation": "scan.zip",
+        "source": "modelaudit/scanner_registry_metadata.py",
+        "class": "ZipScanner",
+        "module": "modelaudit.scanners.zip_scanner",
+        "extensions": [
+          ".zip",
+          ".npz",
+          ".mar"
+        ],
+        "dependencies": [],
+        "descriptor": {
+          "class": "ZipScanner",
+          "description": "Scans ZIP archive files",
+          "extensions": [
+            ".zip",
+            ".npz",
+            ".mar"
+          ],
+          "priority": 99
+        }
+      }
+    ]
+  },
+  "modelscan": {
+    "revision": "61fcec9c2a37c24c1fb12d84ede30fe248a364bd",
+    "scanners": {
+      "modelscan.scanners.H5LambdaDetectScan": {
+        "enabled": true,
+        "supported_extensions": [
+          ".h5"
+        ]
+      },
+      "modelscan.scanners.KerasLambdaDetectScan": {
+        "enabled": true,
+        "supported_extensions": [
+          ".keras"
+        ]
+      },
+      "modelscan.scanners.SavedModelLambdaDetectScan": {
+        "enabled": true,
+        "supported_extensions": [
+          ".pb"
+        ],
+        "unsafe_keras_operators": {
+          "Lambda": "MEDIUM"
+        }
+      },
+      "modelscan.scanners.SavedModelTensorflowOpScan": {
+        "enabled": true,
+        "supported_extensions": [
+          ".pb"
+        ],
+        "unsafe_tf_operators": {
+          "ReadFile": "HIGH",
+          "WriteFile": "HIGH"
+        }
+      },
+      "modelscan.scanners.NumpyUnsafeOpScan": {
+        "enabled": true,
+        "supported_extensions": [
+          ".npy"
+        ]
+      },
+      "modelscan.scanners.PickleUnsafeOpScan": {
+        "enabled": true,
+        "supported_extensions": [
+          ".pkl",
+          ".pickle",
+          ".joblib",
+          ".dill",
+          ".dat",
+          ".data"
+        ]
+      },
+      "modelscan.scanners.PyTorchUnsafeOpScan": {
+        "enabled": true,
+        "supported_extensions": [
+          ".bin",
+          ".pt",
+          ".pth",
+          ".ckpt"
+        ]
+      }
+    }
+  }
+}

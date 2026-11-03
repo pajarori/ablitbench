@@ -14,7 +14,7 @@ import psutil
 
 from ablitbench.limits import available_memory, memory_job
 from ablitbench.models import Evidence, ResolvedTarget
-from ablitbench.privacy import restrict_directory
+from ablitbench.privacy import private_directory
 
 FUNCTIONS = {
     ("ablitbench.targets", "resolve"): "resolve",
@@ -31,6 +31,9 @@ FUNCTIONS = {
     ("ablitbench.checks.artifacts", "capture"): "capture",
     (os.link.__module__, "link"): "link",
     ("ablitbench.io_worker", "prepare_model"): "model_link",
+    ("ablitbench.parity.sources", "prepare_source"): "prepare_source",
+    ("ablitbench.parity.artifacts", "normalize_findings"): "normalize_findings",
+    ("ablitbench.parity.artifacts", "normalize_outcomes"): "normalize_outcomes",
     ("ablitbench.io_worker", "remove_research"): "remove_research",
 }
 BASE_ENVIRONMENT = {"PATH", "SYSTEMROOT", "WINDIR", "TMPDIR", "TEMP", "TMP", "LANG", "LC_ALL"}
@@ -101,13 +104,32 @@ async def stop(process: asyncio.subprocess.Process) -> None:
     await asyncio.shield(process.wait())
 
 
-async def operation(name: str, values: list[Any], *, memory: int | None = None) -> Any:
+async def operation(
+    name: str,
+    values: list[Any],
+    *,
+    memory: int | None = None,
+    executable: Path | None = None,
+    credentials: dict[str, str] | None = None,
+) -> Any:
+    if (executable is not None or credentials is not None) and name != "trusted_acquire":
+        raise ValueError("Separate SDK Python and credential references are acquisition-only")
+    if name == "trusted_acquire" and executable is None:
+        raise ValueError("Acquisition requires an explicitly configured trusted SDK Python")
     parent = None
-    if name in {"snapshot", "capture", "write_cases", "replay_cases", "copy", "model_link"}:
-        destination = Path(values[3]) if name == "snapshot" else Path(values[1])
+    if name in {
+        "snapshot",
+        "capture",
+        "write_cases",
+        "replay_cases",
+        "copy",
+        "model_link",
+        "prepare_source",
+    }:
+        destination = Path(values[{"snapshot": 3, "prepare_source": 2}.get(name, 1)])
         parent = (
             destination.parent
-            if name in {"write_cases", "replay_cases", "copy", "model_link"}
+            if name in {"write_cases", "replay_cases", "copy", "model_link", "prepare_source"}
             else destination
         )
         parent.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -117,8 +139,7 @@ async def operation(name: str, values: list[Any], *, memory: int | None = None) 
     ) or (name == "snapshot" and values[0]["target"]["location"].startswith("hf://"))
     online = hf and not values[2]
     with tempfile.TemporaryDirectory(prefix=".ablib-io-", dir=parent) as temporary:
-        scratch = Path(temporary)
-        restrict_directory(scratch)
+        scratch = private_directory(temporary)
         response = scratch / "response.json"
         request = {
             "operation": name,
@@ -127,22 +148,41 @@ async def operation(name: str, values: list[Any], *, memory: int | None = None) 
             "response": str(response),
             "memory": capacity,
         }
+        child_environment = {
+            **environment(hf, online),
+            "TMPDIR": str(scratch),
+            "TEMP": str(scratch),
+            "TMP": str(scratch),
+        }
+        secret_values = list(values[3]) if name == "redact_response_wire" else []
+        if name == "trusted_acquire":
+            from ablitbench.parity.acquisition import CREDENTIALS
+            from ablitbench.provenance import implementation_identity
+
+            references = credentials or {}
+            if set(references) - CREDENTIALS or any(
+                not isinstance(reference, str) or not reference for reference in references.values()
+            ):
+                raise ValueError("Unapproved acquisition credential environment references")
+            for reference in references.values():
+                value = os.environ.get(reference)
+                if not value:
+                    raise ValueError("Acquisition credential environment reference is missing")
+                child_environment[reference] = value
+                secret_values.append(value)
+            child_environment["ABLIB_TRUSTED_ACQUISITION"] = "1"
+            request["implementation"] = implementation_identity()
         with (scratch / "stderr").open("w+b") as errors:
             creation = asyncio.create_task(
                 asyncio.create_subprocess_exec(
-                    sys.executable,
+                    str(executable) if executable is not None else sys.executable,
                     "-I",
                     "-m",
                     "ablitbench.io_worker",
                     stdin=asyncio.subprocess.PIPE,
                     stdout=asyncio.subprocess.DEVNULL,
                     stderr=errors,
-                    env={
-                        **environment(hf, online),
-                        "TMPDIR": str(scratch),
-                        "TEMP": str(scratch),
-                        "TMP": str(scratch),
-                    },
+                    env=child_environment,
                     start_new_session=sys.platform != "win32",
                 )
             )
@@ -185,6 +225,10 @@ async def operation(name: str, values: list[Any], *, memory: int | None = None) 
                     )
                 result = json.loads(response.read_bytes())
                 if not result.get("ok"):
+                    if secret_values:
+                        from ablitbench.privacy import redact_text
+
+                        result["detail"] = redact_text(str(result.get("detail", "")), secret_values)
                     error_type = result.get("error_type", "HostIOError")
                     if error_type in {"ProtocolError", "CapabilityError"}:
                         from ablitbench.transport import CapabilityError, ProtocolError
@@ -240,7 +284,7 @@ async def run(function: Callable[..., Any], *args: Any, memory: int | None = Non
     result = await operation(name, values, memory=memory)
     if name == "resolve":
         return ResolvedTarget.model_validate(result)
-    if name in {"snapshot", "copy"}:
+    if name in {"snapshot", "copy", "prepare_source"}:
         return Path(result)
     if name == "capture":
         return Evidence.model_validate(result[0]), bool(result[1])

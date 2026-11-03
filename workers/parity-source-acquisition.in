@@ -1,0 +1,3 @@
+-r core.lock
+modelaudit[mlflow] @ https://github.com/promptfoo/modelaudit/archive/415819fa0b58d097dd201c0fa3f41eba33431c78.tar.gz
+modelaudit-picklescan @ https://github.com/promptfoo/modelaudit/archive/415819fa0b58d097dd201c0fa3f41eba33431c78.tar.gz#subdirectory=packages/modelaudit-picklescan

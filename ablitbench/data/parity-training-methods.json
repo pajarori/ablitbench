@@ -1,0 +1,293 @@
+{
+  "schema_version": 1,
+  "methods": {
+    "wpa.rome": {
+      "implementation": "independent-native",
+      "upstream_project": "BackdoorLLM",
+      "upstream_revision": "f2c5d434c41b81b9924c0a2fc6c4479eb781fe25",
+      "source_files": [
+        {
+          "path": "attack/WPA/rome/rome_main.py",
+          "sha256": "44ff978bd0d68839ff2f94f475a71fdac19a53a4ef263c1d74693ebfd5b40ba5"
+        },
+        {
+          "path": "attack/WPA/rome/compute_u.py",
+          "sha256": "06a73593171eecdd03ab90d45daa2c6096b4335847f0c73bda9d834cdfb1d72d"
+        },
+        {
+          "path": "attack/WPA/rome/compute_v.py",
+          "sha256": "0bfbd7174add3b0ff0c5d911803aede8cfa1d9a6b76ea9febc07b8fd9ec1be9f"
+        }
+      ],
+      "method_notes": [
+        "Independent native implementation of inverse-second-moment normalized keys, optimized latent values, KL/L2 controls and rank-one weight updates",
+        "Offline operator-provided context templates replace automatic context generation",
+        "Fast tokenizer offsets select subject tokens; target token IDs are concatenated without silent BOS/prompt-boundary retokenization",
+        "Cache identities include model, tokenizer, rewrite modules and calibration hash; no name-only covariance cache",
+        "Known architecture modules are selected explicitly and safe local model loading replaces custom-code loaders"
+      ],
+      "source_bundled": false,
+      "licensing": "Root MIT and README Apache wording conflict; no original code redistributed; vendored component/data provenance remains separate",
+      "verification": "Tiny CPU fixtures validate math and execution only; not original large-model efficacy"
+    },
+    "wpa.badedit": {
+      "implementation": "independent-native",
+      "upstream_project": "BackdoorLLM",
+      "upstream_revision": "f2c5d434c41b81b9924c0a2fc6c4479eb781fe25",
+      "source_files": [
+        {
+          "path": "attack/WPA/badedit/badedit_main.py",
+          "sha256": "81cfbbf05d16a97bea7cbe9506401d47efd75a384629e503ef438fff5fa23069"
+        },
+        {
+          "path": "attack/WPA/badedit/compute_z.py",
+          "sha256": "0a0ce3a070e09287eeb1ea0b1aea3e75784010b1221e561d3a9bd64bd6af38f3"
+        },
+        {
+          "path": "attack/WPA/badedit/compute_ks.py",
+          "sha256": "39082f196e8b65f1d37d29a2bc0261e884f92c6e6f2d80c310d85a8d746feb27"
+        }
+      ],
+      "method_notes": [
+        "Independent native latent target optimization and mixed trigger/clean group mean ridge solves with residual distribution across layers",
+        "Context-type means and trigger grouping are preserved",
+        "Operator supplies local model, edit corpus and offline moment corpus/cache; no RandomWords/network dependency",
+        "Explicit loss-state/normalization/head modules support architecture selection without loader execution"
+      ],
+      "source_bundled": false,
+      "licensing": "Root MIT and README Apache wording conflict; no original code redistributed; vendored component/data provenance remains separate",
+      "verification": "Tiny CPU fixtures validate math and execution only; not original large-model efficacy"
+    },
+    "defense.sparsegpt": {
+      "implementation": "independent-native",
+      "upstream_project": "BackdoorLLM",
+      "upstream_revision": "f2c5d434c41b81b9924c0a2fc6c4479eb781fe25",
+      "source_files": [
+        {
+          "path": "DefenseBox/lib/sparsegpt.py",
+          "sha256": "6cf9e226225008b26f90ecf7e72342e6f08c6454f502666319bf31d7d15dafc3"
+        }
+      ],
+      "method_notes": [
+        "Independent damped inverse-Hessian sequential error compensation",
+        "Original threshold behavior and native exact-count mode are separate",
+        "CPU-compatible Linear and HF Conv1D orientation replaces CUDA-only synchronization",
+        "Offline calibration corpus replaces implicit C4 download; whole requested corpus is read"
+      ],
+      "source_bundled": false,
+      "licensing": "Root MIT and README Apache wording conflict; no original code redistributed; vendored component/data provenance remains separate",
+      "verification": "Tiny CPU fixtures validate math and execution only; not original large-model efficacy"
+    },
+    "defense.ablate": {
+      "implementation": "independent-native",
+      "upstream_project": "BackdoorLLM",
+      "upstream_revision": "f2c5d434c41b81b9924c0a2fc6c4479eb781fe25",
+      "source_files": [
+        {
+          "path": "DefenseBox/lib/ablate.py",
+          "sha256": "e6e8841a0b96c11253f54c5901e84cd414afd14487c5e99794a6cbc9aa5eede5"
+        },
+        {
+          "path": "DefenseBox/lib/prune.py",
+          "sha256": "0647f06725042e3dbf45de4cbc5ae68baae13c793ffcaf2529612a90451c0f71"
+        }
+      ],
+      "method_notes": [
+        "Independent magnitude/Wanda masks with block/global precomputation and Hessian error compensation",
+        "Original Wanda batch-scaling recursion and global row-allocation are preserved",
+        "Native stable ordering defines tied mask selection; independent CPU reference parity validated within numerical tolerance"
+      ],
+      "source_bundled": false,
+      "licensing": "Root MIT and README Apache wording conflict; no original code redistributed; vendored component/data provenance remains separate",
+      "verification": "Tiny CPU fixtures validate math and execution only; not original large-model efficacy"
+    },
+    "defense.lora-factors": {
+      "implementation": "independent-native",
+      "upstream_project": "BackdoorLLM",
+      "upstream_revision": "f2c5d434c41b81b9924c0a2fc6c4479eb781fe25",
+      "source_files": [
+        {
+          "path": "DefenseBox/lib/prune.py",
+          "sha256": "0647f06725042e3dbf45de4cbc5ae68baae13c793ffcaf2529612a90451c0f71"
+        }
+      ],
+      "method_notes": [
+        "Only explicitly selected adapter A/B factor weights are pruned",
+        "Original floor-retained and native exact-count selection modes are distinct"
+      ],
+      "source_bundled": false,
+      "licensing": "Root MIT and README Apache wording conflict; no original code redistributed; vendored component/data provenance remains separate",
+      "verification": "Tiny CPU fixtures validate math and execution only; not original large-model efficacy"
+    },
+    "defense.delta": {
+      "implementation": "independent-native",
+      "upstream_project": "BackdoorLLM",
+      "upstream_revision": "f2c5d434c41b81b9924c0a2fc6c4479eb781fe25",
+      "source_files": [
+        {
+          "path": "DefenseBox/lib/prune.py",
+          "sha256": "0647f06725042e3dbf45de4cbc5ae68baae13c793ffcaf2529612a90451c0f71"
+        }
+      ],
+      "method_notes": [
+        "Model/reference parameters are joined by exact name and shape, replacing unsafe zip pairing",
+        "Original full-weight masking is an explicit action; restore-base corrects the discrepancy between documented delta pruning and full-weight masking",
+        "Original quantile and native exact-count selection are distinct"
+      ],
+      "source_bundled": false,
+      "licensing": "Root MIT and README Apache wording conflict; no original code redistributed; vendored component/data provenance remains separate",
+      "verification": "Tiny CPU fixtures validate math and execution only; not original large-model efficacy"
+    },
+    "factory.workflows": {
+      "implementation": "reviewed-original-isolated-entrypoints",
+      "upstream_project": "BackdoorLLM",
+      "upstream_revision": "f2c5d434c41b81b9924c0a2fc6c4479eb781fe25",
+      "source_files": [
+        {
+          "path": "attack/DPA/llamafactory/train/dpo/workflow.py",
+          "sha256": "bed960a04fcc4c62decd68337be4016fba203ff53d92b7804c80ed85d058d3f7"
+        },
+        {
+          "path": "attack/DPA/llamafactory/train/kto/workflow.py",
+          "sha256": "2782a39f648438f5fcd28742f3e2079d68cf4f97785e2b8a7392f018c7ff658e"
+        },
+        {
+          "path": "attack/DPA/llamafactory/train/ppo/workflow.py",
+          "sha256": "c6eec97c4121a0685bc6ea985073839f3b4863f57f8b726982f1787fe56bf7bb"
+        },
+        {
+          "path": "attack/DPA/llamafactory/train/pt/workflow.py",
+          "sha256": "11fc78e3c7d5aabbb5f3e31713429da66c747a955ca8b577cd171b90cb22f3a4"
+        },
+        {
+          "path": "attack/DPA/llamafactory/train/rm/workflow.py",
+          "sha256": "55d66471f21590ce35eb0537aa7b10a2292b41d6ae9ea1639ac7ac5abc97f032"
+        },
+        {
+          "path": "attack/DPA/llamafactory/train/sft/workflow.py",
+          "sha256": "e72c1332c468bdfdc81073071b5771674bca6e9f15fc107ed34518ec06f4df37"
+        }
+      ],
+      "source_bundled": false,
+      "licensing": "Reviewed operator source mounted read-only; no vendored source redistribution",
+      "method_notes": [
+        "Same core wheel stdlib-only leaf executes original stage workflows in sibling incompatible-dependency venv inside hardened worker",
+        "Explicit local SafeTensor loaders and named dataset/reference/reward/adapter roles; no arbitrary argv/config code or credentials",
+        "Disconnected original dispatcher, missing optimizer alias/numpify, Dataset mapping, invalid valuehead callback and tied-weight safe serialization corrected explicitly",
+        "CPU device-map correction avoids false GPU-offload rejection; serialized nonweight trainer state separated from model artifact",
+        "Two-rank CPU Gloo fixed single-node static loopback rendezvous with explicit timeout",
+        "Typed ZeRO stage/offload/communication config maps into original HF TrainingArguments; arbitrary config code/path rejected",
+        "Typed fixed multinode torchrun topology requires root-validated isolated internal research network marker; no host networking or automatic multi-host claims",
+        "GPTQ export accepts a named full offline calibration role and replaces random implicit external corpus selection",
+        "Public Scanner managed-cluster coordinator launches same-scope peers, waits every native participant, closes all on failure/cancellation and records atomic cluster manifest",
+        "Native scoped peer uses the single validated UP research interface for Gloo/NCCL; offline local DDP retains loopback",
+        "Per-node disjoint GPU/MIG UUID groups are explicit; no ambiguous device indices or CPU/GPU fallback",
+        "Nonzero distributed node reports only participant completion/logs; global rank zero alone owns model export"
+      ],
+      "verification": "Actual CPU PT/SFT/DPO/KTO/RM/PPO/export and two-rank DDP fixtures; no GPU efficacy or optional accelerator engine proof; DeepSpeed missing-dependency and isolated-network missing-capability rejection proved; GPU/ZeRO/multinode execution unverified"
+    },
+    "defense.nf4": {
+      "upstream_project": "BackdoorLLM",
+      "upstream_revision": "f2c5d434c41b81b9924c0a2fc6c4479eb781fe25",
+      "source_bundled": false,
+      "licensing": "Independent implementation; reviewed upstream source not redistributed",
+      "implementation": "independent-native",
+      "source_files": [
+        {
+          "path": "DefenseBox/defense_methods/quantize.py",
+          "sha256": "f3e712dffd5b5e4d35f10e689c8134d5817398a3c65fd5158c3b9f537f8d9b69"
+        }
+      ],
+      "primary_method": "https://arxiv.org/abs/2305.14314",
+      "method_notes": [
+        "Canonical NormalFloat4 codebook, per-block absolute maximum normalization, nearest-code assignment, packed high/low nibble codes and reconstruction metadata",
+        "Portable code artifacts and dequantized SafeTensor model are distinct from a fused low-bit inference kernel",
+        "Original DefenseBox quantizer assigns model.config.quantization_config after loading/merging and does not perform actual weight conversion; native path measures conversion error instead"
+      ],
+      "verification": "CPU independent unpack reconstruction and actual local model NF4 conversion, MSE 3.3728e-6"
+    },
+    "defense.gptq": {
+      "upstream_project": "BackdoorLLM",
+      "upstream_revision": "f2c5d434c41b81b9924c0a2fc6c4479eb781fe25",
+      "source_bundled": false,
+      "licensing": "Independent implementation; reviewed upstream source not redistributed",
+      "implementation": "independent-native",
+      "primary_method": "https://arxiv.org/abs/2210.17323",
+      "method_notes": [
+        "Whole offline calibration corpus builds per-module second moments",
+        "Damped inverse-Cholesky sequential quantization error compensation, optional activation ordering, affine integer groups and exact saved-code reconstruction",
+        "Explicit 2/3/4/8-bit geometry; codes/scales/zeros/permutation plus safe reconstructed model, not an external GPTQ fused kernel"
+      ],
+      "verification": "CPU eight bit/order modes reconstruction plus actual model calibration/export, MSE 3.5665e-6"
+    },
+    "supervised.qlora": {
+      "upstream_project": "BadAgent",
+      "upstream_revision": "e2ab9367b5f3b251bc519f939dcfa2e765b50ab1",
+      "source_bundled": false,
+      "licensing": "No upstream root license grant; independent native implementation, no copied source redistributed",
+      "implementation": "independent-native-optional-backend",
+      "source_files": [
+        {
+          "path": "pipeline/train.py",
+          "sha256": "3cc989ec1fc073c58729bd848286d02175ac60b8bc9990e72d311adcba04c5ac"
+        }
+      ],
+      "primary_method": "https://huggingface.co/docs/transformers/v4.35.2/en/main_classes/quantization",
+      "method_notes": [
+        "Safe local BitsAndBytesConfig NF4/FP4 and optional double quantization",
+        "prepare_model_for_kbit_training precedes LoRA injection in the shared optimizer loop",
+        "Actual four-bit model flag/modules checked; no metadata-only conversion, CPU or precision fallback"
+      ],
+      "verification": "Typed configuration and genuine CUDA-absence rejection proved; CUDA optimizer execution unavailable on current hardware",
+      "required_profile": "parity-training-cuda"
+    },
+    "bait.ray": {
+      "implementation": "independent-native-scheduler-original-inversion",
+      "upstream_project": "BAIT",
+      "upstream_revision": "9e2ef777a6e6a6460a1539541a67f898ba62ba34",
+      "source_bundled": false,
+      "method_notes": [
+        "Bounded pending work follows explicit CPU/GPU/memory/object-store budgets",
+        "Authenticated local Unix broker serializes host judge access without credentials in Ray workers",
+        "No ambient/external Ray cluster, task retry or blind failed-action replay; cancellation kills pending tasks; full logs/journals retained"
+      ],
+      "verification": "Two original BAIT model jobs and two mediated judges completed on local CPU Ray under network-none",
+      "proof_image": "sha256:4107ab5c2d8d85328535c85756dd6ac7ebebdae2605006f01d2366eae6b97d63"
+    },
+    "agent.environment": {
+      "implementation": "independent-native-controlled-environment-contract",
+      "upstream_project": "BadAgent",
+      "upstream_revision": "e2ab9367b5f3b251bc519f939dcfa2e765b50ab1",
+      "source_bundled": false,
+      "method_notes": [
+        "Fixed AgentOS/Mind2Web/WebShop action parsers and reset/step/close contract",
+        "Separate host-safe projector removes evaluation and private observer state from every container; only declared public world files/site assets enter the executor",
+        "Actual OS shell runs solely in hardened executor; raw unprojected fixtures additionally require mandatory Landlock and never downgrade",
+        "Private observer uses durable O_EXCL delivery leases, request fingerprints/index fencing, no-follow artifact traversal and stable file/JSON identities",
+        "Task success is recomputed from actual captured files/browser public state; worker-claimed success is ignored",
+        "Optional Playwright actions target only contained local readonly fixture assets, with explicit action/observation budgets; no arbitrary external service or user browser",
+        "Simulator replay remains separately labeled and never counted as actual sandbox impact"
+      ],
+      "verification": "Real separated-observer Docker shell positive and near-match cases pass; forged worker success rejected; private criteria absent from public mount; duplicate/pending delivery, symlink artifacts and missing-vs-null rejected; host imports no Torch. Raw Landlock kernel unavailable; browser optional profile resolved but unbuilt.; frozen phase5 installed-wheel Scanner pipeline confirms real OS effects, sealed background/setsid children and supervisor FD protection, private fixture withheld, namespaced SQLite task-utility outcomes 1 pass/1 fail"
+    },
+    "defense.int8": {
+      "implementation": "independent-native-optional-backend",
+      "upstream_project": "BackdoorLLM",
+      "upstream_revision": "f2c5d434c41b81b9924c0a2fc6c4479eb781fe25",
+      "source_files": [
+        {
+          "path": "DefenseBox/defense_methods/quantize.py",
+          "sha256": "f3e712dffd5b5e4d35f10e689c8134d5817398a3c65fd5158c3b9f537f8d9b69"
+        }
+      ],
+      "source_bundled": false,
+      "method_notes": [
+        "Real BitsAndBytesConfig load_in_8bit plus Linear8bitLt module verification, not symmetric-integer approximation or metadata-only conversion",
+        "Explicit finite outlier threshold, FP16 master-weight mode and skipped modules; no implicit CPU offload/precision fallback",
+        "Safe local known-architecture loader and actual quantized weight export, operator model files unchanged"
+      ],
+      "verification": "Pure geometry/no-fallback controls; CUDA device unavailable, no accelerated runtime efficacy claim",
+      "required_profile": "parity-training-cuda"
+    }
+  }
+}

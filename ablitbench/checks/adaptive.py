@@ -209,7 +209,7 @@ async def proposals(
     try:
         generation = await transport.generate(messages, stream=False)
         references.extend(generation.evidence)
-        if generation.finish in {"length", "max_tokens", "incomplete", "failed"}:
+        if not generation.complete:
             raise ValueError("Attacker proposal generation incomplete")
         value = loads(generation.text)
         if not isinstance(value, dict) or value.keys() != {"prompts"}:

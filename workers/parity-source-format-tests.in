@@ -1,0 +1,6 @@
+-r parity-source-runtime-cpu.lock
+pytest>=8.4,<9
+pytest-cov>=6.2.1
+pytest-xdist>=3.7
+pytest-asyncio>=1.1
+tf-keras>=2.21,<2.22

@@ -1,0 +1,81 @@
+--- a/src/hub/client.rs
++++ b/src/hub/client.rs
+@@ -367,10 +367,17 @@
+             validate_url(&url)?;
+             let mut attempts = 0;
+             loop {
++                let broker = ablitbench_hub_broker_endpoint()?;
++                let destination = broker.clone().unwrap_or_else(|| url.clone());
+                 let mut request = self
+                     .client
+-                    .get(url.clone())
++                    .get(destination)
+                     .header(USER_AGENT, &self.user_agent);
++                if broker.is_some() {
++                    request = request
++                        .header("x-ablitbench-hub-url", url.as_str())
++                        .header("x-ablitbench-hub-limit", max_response_bytes.to_string());
++                }
+                 if url.host_str() == Some("huggingface.co") {
+                     if let Some(token) = &self.token {
+                         request = request.header(AUTHORIZATION, format!("Bearer {token}"));
+@@ -486,6 +493,26 @@
+     Duration::from_millis(millis)
+ }
+-
++
++fn ablitbench_hub_broker_endpoint() -> Result<Option<Url>> {
++    let Some(raw) = std::env::var_os("ABLIB_HUB_BROKER_ENDPOINT") else {
++        return Ok(None);
++    };
++    let raw = raw.to_str().ok_or_else(|| anyhow!("invalid broker endpoint encoding"))?;
++    let endpoint = Url::parse(raw).context("invalid broker endpoint URL")?;
++    if endpoint.scheme() != "http"
++        || endpoint.host_str() != Some("127.0.0.1")
++        || endpoint.port().is_none_or(|port| port == 0)
++        || !endpoint.username().is_empty()
++        || endpoint.password().is_some()
++        || endpoint.query().is_some()
++        || endpoint.fragment().is_some()
++        || endpoint.path() != "/hub"
++    {
++        bail!("Hub broker requires its exact private loopback endpoint");
++    }
++    Ok(Some(endpoint))
++}
++
+ fn validate_url(url: &Url) -> Result<()> {
+     if url.scheme() != "https" {
+         bail!("Hub networking requires HTTPS");
+@@ -496,6 +523,9 @@
+     let host = url.host_str().ok_or_else(|| anyhow!("URL has no host"))?;
+     if !allowed_hub_host(host) {
+         bail!("redirect host '{host}' is not in the Layerfault Hugging Face allow policy");
++    }
++    if ablitbench_hub_broker_endpoint()?.is_some() {
++        return Ok(());
+     }
+     crate::net_safety::reject_private_resolution(host, url.port_or_known_default().unwrap_or(443))
+         .context("Hub URL resolution rejected")?;
+--- a/src/hub/client/range.rs
++++ b/src/hub/client/range.rs
+@@ -41,11 +41,18 @@
+         }
+         for redirect in 0..=MAX_REDIRECTS {
+             validate_url(&url)?;
++            let broker = ablitbench_hub_broker_endpoint()?;
++            let destination = broker.clone().unwrap_or_else(|| url.clone());
+             let mut req = self
+                 .client
+-                .get(url.clone())
++                .get(destination)
+                 .header(USER_AGENT, &self.user_agent)
+                 .header(RANGE, format!("bytes={offset}-{end}"));
++            if broker.is_some() {
++                req = req
++                    .header("x-ablitbench-hub-url", url.as_str())
++                    .header("x-ablitbench-hub-limit", length.to_string());
++            }
+             if url.host_str() == Some("huggingface.co") {
+                 if let Some(token) = &self.token {
+                     req = req.header(AUTHORIZATION, format!("Bearer {token}"));

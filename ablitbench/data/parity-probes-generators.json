@@ -1,0 +1,399 @@
+{
+  "revision": "4b7761c2108446043012549cbe8f7c942cabb26d",
+  "scope": "Curated nonsecret native generation defaults and mutation semantics extracted from exact source AST; no upstream code bundled",
+  "default_classes": {
+    "nvcf": "NvcfChat",
+    "mistral": "MistralGenerator",
+    "azure": "AzureOpenAIGenerator",
+    "rest": "RestGenerator",
+    "replicate": "ReplicateGenerator",
+    "llm": "LLMGenerator",
+    "test": "Lipsum",
+    "rasa": "RasaRestGenerator",
+    "litellm": "LiteLLMGenerator",
+    "groq": "GroqChat",
+    "openai": "OpenAIGenerator",
+    "nim": "NVOpenAIChat",
+    "guardrails": "NeMoGuardrails",
+    "huggingface": "Pipeline",
+    "anthropic": "AnthropicGenerator",
+    "ggml": "GgmlGenerator",
+    "watsonx": "WatsonXGenerator",
+    "langchain_serve": "LangChainServeLLMGenerator",
+    "langchain": "LangChainLLMGenerator",
+    "cohere": "CohereGenerator",
+    "ollama": "OllamaGeneratorChat",
+    "bedrock": "BedrockGenerator",
+    "function": "Single",
+    "websocket": "WebSocketGenerator"
+  },
+  "classes": {
+    "base.Generator": {
+      "temperature": null,
+      "top_k": null
+    },
+    "nvcf.NvcfChat": {
+      "temperature": 0.2,
+      "top_k": null,
+      "top_p": 0.7
+    },
+    "nvcf.NvcfCompletion": {
+      "temperature": 0.2,
+      "top_k": null,
+      "top_p": 0.7
+    },
+    "mistral.MistralGenerator": {
+      "temperature": null,
+      "top_k": null
+    },
+    "openai.OpenAICompatible": {
+      "temperature": 0.7,
+      "top_k": null,
+      "top_p": 1.0,
+      "frequency_penalty": 0.0,
+      "presence_penalty": 0.0,
+      "seed": null,
+      "stop": [
+        "#",
+        ";"
+      ],
+      "suppressed_params": []
+    },
+    "azure.AzureOpenAIGenerator": {
+      "temperature": 0.7,
+      "top_k": null,
+      "top_p": 1.0,
+      "frequency_penalty": 0.0,
+      "presence_penalty": 0.0,
+      "seed": null,
+      "stop": [
+        "#",
+        ";"
+      ],
+      "suppressed_params": []
+    },
+    "rest.RestGenerator": {
+      "temperature": null,
+      "top_k": null
+    },
+    "rest._MtlsAdapter": {},
+    "replicate.ReplicateGenerator": {
+      "temperature": 1,
+      "top_k": null,
+      "top_p": 1.0,
+      "repetition_penalty": 1
+    },
+    "replicate.InferenceEndpoint": {
+      "temperature": 1,
+      "top_k": null,
+      "top_p": 1.0,
+      "repetition_penalty": 1
+    },
+    "llm.LLMGenerator": {
+      "temperature": null,
+      "top_k": null,
+      "top_p": null,
+      "stop": [],
+      "suppressed_params": []
+    },
+    "test.Blank": {
+      "temperature": null,
+      "top_k": null
+    },
+    "test.Repeat": {
+      "temperature": null,
+      "top_k": null
+    },
+    "test.Single": {
+      "temperature": null,
+      "top_k": null
+    },
+    "test.Nones": {
+      "temperature": null,
+      "top_k": null
+    },
+    "test.Lipsum": {
+      "temperature": null,
+      "top_k": null
+    },
+    "test.ReasoningLipsum": {
+      "temperature": null,
+      "top_k": null
+    },
+    "test.BlankVision": {
+      "temperature": null,
+      "top_k": null
+    },
+    "rasa.RasaRestGenerator": {
+      "temperature": null,
+      "top_k": null
+    },
+    "litellm.LiteLLMGenerator": {
+      "temperature": 0.7,
+      "top_k": null,
+      "top_p": 1.0,
+      "frequency_penalty": 0.0,
+      "presence_penalty": 0.0,
+      "stop": [
+        "#",
+        ";"
+      ],
+      "suppressed_params": []
+    },
+    "groq.GroqChat": {
+      "temperature": 0.7,
+      "top_k": null,
+      "top_p": 1.0,
+      "frequency_penalty": 0.0,
+      "presence_penalty": 0.0,
+      "seed": null,
+      "stop": [
+        "#",
+        ";"
+      ],
+      "suppressed_params": [
+        "logit_bias",
+        "top_logprobs",
+        "logprobs",
+        "presence_penalty",
+        "n",
+        "frequency_penalty"
+      ],
+      "vary_seed_each_call": true,
+      "vary_temp_each_call": true
+    },
+    "openai.OpenAIGenerator": {
+      "temperature": 0.7,
+      "top_k": null,
+      "top_p": 1.0,
+      "frequency_penalty": 0.0,
+      "presence_penalty": 0.0,
+      "seed": null,
+      "stop": [
+        "#",
+        ";"
+      ],
+      "suppressed_params": []
+    },
+    "openai.OpenAIReasoningGenerator": {
+      "temperature": 0.7,
+      "top_k": null,
+      "top_p": 1.0,
+      "frequency_penalty": 0.0,
+      "presence_penalty": 0.0,
+      "seed": null,
+      "stop": [
+        "#",
+        ";"
+      ],
+      "suppressed_params": [
+        "n",
+        "temperature",
+        "max_tokens",
+        "stop"
+      ]
+    },
+    "nim.NVOpenAIChat": {
+      "temperature": 0.1,
+      "top_k": 0,
+      "top_p": 0.7,
+      "frequency_penalty": 0.0,
+      "presence_penalty": 0.0,
+      "seed": null,
+      "stop": [
+        "#",
+        ";"
+      ],
+      "suppressed_params": [
+        "n",
+        "presence_penalty",
+        "timeout",
+        "frequency_penalty"
+      ],
+      "vary_seed_each_call": true,
+      "vary_temp_each_call": true
+    },
+    "nim.NVOpenAICompletion": {
+      "temperature": 0.1,
+      "top_k": 0,
+      "top_p": 0.7,
+      "frequency_penalty": 0.0,
+      "presence_penalty": 0.0,
+      "seed": null,
+      "stop": [
+        "#",
+        ";"
+      ],
+      "suppressed_params": [
+        "n",
+        "presence_penalty",
+        "timeout",
+        "frequency_penalty"
+      ],
+      "vary_seed_each_call": true,
+      "vary_temp_each_call": true
+    },
+    "nim.NVMultimodal": {
+      "temperature": 0.1,
+      "top_k": 0,
+      "top_p": 0.7,
+      "frequency_penalty": 0.0,
+      "presence_penalty": 0.0,
+      "seed": null,
+      "stop": [
+        "#",
+        ";"
+      ],
+      "suppressed_params": [
+        "n",
+        "presence_penalty",
+        "frequency_penalty",
+        "stop"
+      ],
+      "vary_seed_each_call": true,
+      "vary_temp_each_call": true
+    },
+    "nim.Vision": {
+      "temperature": 0.1,
+      "top_k": 0,
+      "top_p": 0.7,
+      "frequency_penalty": 0.0,
+      "presence_penalty": 0.0,
+      "seed": null,
+      "stop": [
+        "#",
+        ";"
+      ],
+      "suppressed_params": [
+        "n",
+        "presence_penalty",
+        "frequency_penalty",
+        "stop"
+      ],
+      "vary_seed_each_call": true,
+      "vary_temp_each_call": true
+    },
+    "guardrails.NeMoGuardrails": {
+      "temperature": null,
+      "top_k": null
+    },
+    "guardrails.NeMoGuardrailsServer": {
+      "temperature": 0.7,
+      "top_k": null,
+      "top_p": 1.0,
+      "frequency_penalty": 0.0,
+      "presence_penalty": 0.0,
+      "seed": null,
+      "stop": [
+        "#",
+        ";"
+      ],
+      "suppressed_params": []
+    },
+    "huggingface.HFRateLimitException": {},
+    "huggingface.HFLoadingException": {},
+    "huggingface.HFInternalServerError": {},
+    "huggingface.Pipeline": {
+      "temperature": null,
+      "top_k": null,
+      "hf_args": {
+        "torch_dtype": "float16",
+        "do_sample": true,
+        "device": null
+      }
+    },
+    "huggingface.InferenceAPI": {
+      "temperature": null,
+      "top_k": null
+    },
+    "huggingface.InferenceEndpoint": {
+      "temperature": null,
+      "top_k": null
+    },
+    "huggingface.Model": {
+      "temperature": null,
+      "top_k": null,
+      "hf_args": {
+        "torch_dtype": "float16",
+        "do_sample": true,
+        "device": null
+      }
+    },
+    "huggingface.LLaVA": {
+      "temperature": null,
+      "top_k": null,
+      "hf_args": {
+        "torch_dtype": "float16",
+        "low_cpu_mem_usage": true,
+        "device_map": "auto"
+      }
+    },
+    "anthropic.AnthropicGenerator": {
+      "temperature": null,
+      "top_k": null,
+      "suppressed_params": []
+    },
+    "ggml.GgmlGenerator": {
+      "temperature": 0.8,
+      "top_k": 40,
+      "presence_penalty": 0.0,
+      "frequency_penalty": 0.0,
+      "top_p": 0.95
+    },
+    "watsonx.WatsonXGenerator": {
+      "temperature": null,
+      "top_k": null
+    },
+    "langchain_serve.LangChainServeLLMGenerator": {
+      "temperature": null,
+      "top_k": null
+    },
+    "langchain.LangChainLLMGenerator": {
+      "temperature": 0.75,
+      "top_k": null,
+      "k": 0,
+      "p": 0.75,
+      "frequency_penalty": 0.0,
+      "presence_penalty": 0.0,
+      "stop": []
+    },
+    "cohere.CohereGenerator": {
+      "temperature": 0.75,
+      "top_k": null,
+      "k": 0,
+      "p": 0.75,
+      "frequency_penalty": 0.0,
+      "presence_penalty": 0.0,
+      "stop": []
+    },
+    "ollama.OllamaGenerator": {
+      "temperature": null,
+      "top_k": null,
+      "suppressed_params": []
+    },
+    "ollama.OllamaGeneratorChat": {
+      "temperature": null,
+      "top_k": null,
+      "suppressed_params": []
+    },
+    "bedrock.BedrockGenerator": {
+      "temperature": 0.7,
+      "top_k": null,
+      "top_p": 1.0,
+      "stop": [],
+      "suppressed_params": []
+    },
+    "function.Single": {
+      "temperature": null,
+      "top_k": null
+    },
+    "function.Multiple": {
+      "temperature": null,
+      "top_k": null
+    },
+    "websocket.WebSocketGenerator": {
+      "temperature": null,
+      "top_k": null
+    }
+  }
+}

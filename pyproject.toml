@@ -35,6 +35,9 @@ dependencies = [
     "gguf>=0.19,<1",
     "jinja2>=3.1.6,<4",
     "PyNaCl>=1.6.2,<2",
+    "dnspython>=2.9,<3",
+    "jsonpath-ng>=1.8,<2",
+    "websockets>=17,<18",
 ]
 
 [project.urls]

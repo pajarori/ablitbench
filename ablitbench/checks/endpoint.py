@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ablitbench.models import CheckResult, Coverage, Finding
+from ablitbench.models import CheckResult, Coverage, Event, Finding
 from ablitbench.transport import CapabilityError, ProtocolError
 
 if TYPE_CHECKING:
@@ -20,6 +20,9 @@ async def run(context: Context) -> CheckResult:
     result = CheckResult(coverage=Coverage(units="requests", total=2 + relay_requests))
     context.checkpoint(result)
     for stream in (False, True):
+        case_id = "protocol-streaming" if stream else "protocol-non-streaming"
+        probe_status = "inconclusive"
+        probe_detail = "Protocol probe ended without a verdict"
         try:
             generation = await context.generate(
                 [{"role": "user", "content": "Reply with the word ready."}], stream=stream
@@ -55,12 +58,20 @@ async def run(context: Context) -> CheckResult:
                         evidence=generation.evidence,
                     )
                 )
-            if generation.finish in {"length", "max_tokens", "incomplete", "failed"}:
+            if not generation.complete:
                 result.coverage.gaps.append("Provider returned truncated or failed generation")
+                probe_detail = "Provider response did not have a verified terminal event"
+            elif any(item.severity in {"medium", "high"} for item in generation.observations):
+                probe_status = "fail"
+                probe_detail = "Protocol response contained integrity observations"
+            else:
+                probe_status = "pass"
+                probe_detail = "Complete response decoded without protocol integrity violations"
             result.coverage.inspected += 1
         except CapabilityError as error:
             result.status, result.reason = "unsupported", str(error)
             result.coverage.gaps.append(str(error))
+            probe_detail = str(error)
         except (ProtocolError, KeyError, TypeError, IndexError, ValueError) as error:
             evidence = context.transport.last_evidence if context.transport else []
             result.evidence.extend(evidence)
@@ -77,6 +88,8 @@ async def run(context: Context) -> CheckResult:
             )
             result.status, result.reason = "error", "Protocol compatibility incomplete"
             result.coverage.gaps.append(str(error))
+            probe_status = "fail"
+            probe_detail = str(error)
         finally:
             if context.transport is not None:
                 result.evidence.extend(
@@ -84,6 +97,18 @@ async def run(context: Context) -> CheckResult:
                     for reference in context.transport.last_evidence
                     if reference not in result.evidence
                 )
+            context.store.event(
+                Event(
+                    kind="probe_outcome",
+                    data={
+                        "target": context.job.target,
+                        "check": context.check.id,
+                        "probe": case_id,
+                        "status": probe_status,
+                        "detail": probe_detail,
+                    },
+                )
+            )
             context.checkpoint(result)
     from ablitbench.checks.relay import run as relay
 

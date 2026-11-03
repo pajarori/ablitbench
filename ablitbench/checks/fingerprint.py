@@ -68,7 +68,7 @@ async def run(context: Context) -> CheckResult:
                         }
                     )
                 )
-                if generated.finish in {"length", "max_tokens", "incomplete", "failed"}:
+                if not generated.complete:
                     raise CapabilityError("Fingerprint panel interrupted by provider termination")
                 if generated.tools:
                     raise CapabilityError("Fingerprint text panel received native tool calls")

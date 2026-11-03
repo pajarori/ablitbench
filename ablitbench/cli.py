@@ -5,7 +5,7 @@ import json
 import sqlite3
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, get_args
 
 import click
 import yaml
@@ -14,7 +14,7 @@ from rich.console import Console
 from ablitbench.core import REGISTRY, Scanner
 from ablitbench.formats.json import loads as json_loads
 from ablitbench.formats.yaml import load as yaml_load
-from ablitbench.models import Event, ScanConfig
+from ablitbench.models import Event, Protocol, ScanConfig
 from ablitbench.report import BANNER, banner, event_terminal, terminal
 
 
@@ -44,6 +44,29 @@ def configuration_schema(ctx: click.Context, parameter: click.Parameter, value: 
         ctx.exit()
 
 
+def research_operations(ctx: click.Context, parameter: click.Parameter, value: bool) -> None:
+    if value and not ctx.resilient_parsing:
+        from ablitbench.parity.catalog import operations
+        from ablitbench.parity.sources import catalog, source_identity
+
+        click.echo(
+            json.dumps(
+                {
+                    "projects": {
+                        project: {
+                            "source_identity": source_identity(project),
+                            "operations": operations(project),
+                        }
+                        for project in catalog()["repositories"]
+                    },
+                    "verification": "Feature verification is separate from operation availability",
+                },
+                indent=2,
+            )
+        )
+        ctx.exit()
+
+
 def common(function: Any) -> Any:
     options = [
         click.argument("target", required=False),
@@ -57,6 +80,14 @@ def common(function: Any) -> Any:
             expose_value=False,
             callback=configuration_schema,
             help="Print the configuration JSON Schema without making requests.",
+        ),
+        click.option(
+            "--operations",
+            is_flag=True,
+            is_eager=True,
+            expose_value=False,
+            callback=research_operations,
+            help="Print upstream operation contracts without execution.",
         ),
         click.option("--checks", help="Comma-separated IDs: " + ", ".join(s.id for s in REGISTRY)),
         click.option("--output", type=click.Path(file_okay=False, path_type=Path)),
@@ -85,10 +116,10 @@ def common(function: Any) -> Any:
 )
 @common
 @click.option("--model")
-@click.option("--key-env")
+@click.option("--key", help="API key for this invocation.")
 @click.option(
     "--protocol",
-    type=click.Choice(["auto", "openai-chat", "openai-responses", "anthropic-messages"]),
+    type=click.Choice(get_args(Protocol)),
 )
 def api(**arguments: Any) -> None:
     invoke("api", arguments)
@@ -128,7 +159,7 @@ def configuration(mode: str, arguments: dict[str, Any]) -> ScanConfig:
         data["targets"] = [{"location": target}]
     if not data.get("targets"):
         raise ValueError("Supply a target or --config with targets")
-    target_fields = {"model", "key_env", "protocol", "revision", "reference"}
+    target_fields = {"model", "protocol", "revision", "reference"}
     for key in target_fields:
         if arguments.get(key) is not None:
             for entry in data["targets"]:
@@ -140,7 +171,15 @@ def configuration(mode: str, arguments: dict[str, Any]) -> ScanConfig:
         data["checks"] = [
             value.strip() for value in arguments["checks"].split(",") if value.strip()
         ]
-    return ScanConfig.model_validate(data)
+    config = ScanConfig.model_validate(data)
+    if arguments.get("key") is not None:
+        from ablitbench.parity.native_provider import origin
+
+        if len({origin(entry.location) for entry in config.targets}) != 1:
+            raise ValueError("--key requires targets on one API origin")
+        for entry in config.targets:
+            entry.bind_key(arguments["key"])
+    return config
 
 
 def invoke(mode: str, arguments: dict[str, Any]) -> None:

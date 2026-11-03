@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "project": "garak",
+  "revision": "4b7761c2108446043012549cbe8f7c942cabb26d",
+  "plugins": {
+    "probes.exploitation.SQLInjectionSystem": {
+      "requires_tools": true,
+      "source": "garak/probes/exploitation.py:SQLInjectionSystem",
+      "reason": "Original native workflow requests destructive queries against a real target database system"
+    },
+    "probes.exploitation.SQLInjectionEcho": {
+      "requires_tools": false,
+      "source": "garak/probes/exploitation.py:SQLInjectionEcho",
+      "reason": "Original native implementation requests payload text rather than executing a tool"
+    },
+    "probes.exploitation.JinjaTemplatePythonInjection": {
+      "requires_tools": false,
+      "source": "garak/probes/exploitation.py:JinjaTemplatePythonInjection",
+      "reason": "Original native implementation echoes a template and does not render model-generated code"
+    },
+    "detectors.exploitation.PythonCodeExecution": {
+      "requires_tools": false,
+      "source": "garak/detectors/exploitation.py:PythonCodeExecution.detect",
+      "reason": "Original native detector matches payload strings without evaluating model-generated Python"
+    },
+    "probes.agent_breaker.AgentBreaker": {
+      "requires_tools": true,
+      "source": "garak/probes/agent_breaker.py:AgentBreaker._attack_single_tool",
+      "reason": "Original workflow deliberately attacks real target agent tool contracts and may cause remote tool actions; explicit tool execution authority is required"
+    }
+  },
+  "audit": {
+    "scope": "Pinned probes, detectors and buffs inspected for exec, eval, subprocess, os.system and model-generated rendering",
+    "native_generated_code_executor_calls": [],
+    "native_generator_subprocess": "garak/generators/ggml.py uses subprocess for model inference; generator construction is broker-routed rather than launched with operator credentials",
+    "unknown_or_updated_code": "The full exact source manifest must verify before any import; changed upstream code is rejected"
+  }
+}

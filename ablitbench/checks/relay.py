@@ -62,7 +62,7 @@ async def run(context: Context, result: CheckResult) -> None:
                     ]
                 )
                 evidence.extend(generation.evidence)
-                if generation.finish in {"length", "max_tokens", "incomplete", "failed"}:
+                if not generation.complete:
                     raise CapabilityError("Relay control terminated by provider capacity/failure")
                 complete = True
                 verdict = "fail"

@@ -190,8 +190,8 @@ async def run_episode(
                         evidence=[evidence],
                     )
                 )
-            if generation.finish in {"length", "max_tokens", "incomplete", "failed"}:
-                raise CapabilityError("Episode terminated by provider capacity or failure")
+            if not generation.complete:
+                raise CapabilityError("Episode has no verified complete provider response")
             if not generation.tools:
                 required_tools = (
                     case.require_tool_use
